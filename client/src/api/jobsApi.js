@@ -1,20 +1,16 @@
-// Placeholder API methods for jobs
-// These will be connected to the backend later
+import api from "./client";
 
 export const getJobs = async (params) => {
-  // TODO: Replace with actual API call
-  // return api.get('/jobs', { params });
-  return { data: [] };
+  const res = await api.get("/jobs", { params });
+  return res.data;
 };
 
 export const getJobById = async (id) => {
-  // TODO: Replace with actual API call
-  // return api.get(`/jobs/${id}`);
-  return { data: null };
+  const res = await api.get(`/jobs/${id}`);
+  return res.data;
 };
 
 export const updateJobStatus = async (id, status) => {
-  // TODO: Replace with actual API call
-  // return api.patch(`/jobs/${id}`, { status });
-  return { data: null };
+  const res = await api.patch(`/jobs/${id}`, { status });
+  return res.data;
 };

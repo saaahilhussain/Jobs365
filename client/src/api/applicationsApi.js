@@ -1,26 +1,21 @@
-// Placeholder API methods for applications
-// These will be connected to the backend later
+import api from "./client";
 
 export const getApplications = async (params) => {
-  // TODO: Replace with actual API call
-  // return api.get('/applications', { params });
-  return { data: [] };
+  const res = await api.get("/applications", { params });
+  return res.data;
 };
 
 export const getApplicationById = async (id) => {
-  // TODO: Replace with actual API call
-  // return api.get(`/applications/${id}`);
-  return { data: null };
+  const res = await api.get(`/applications/${id}`);
+  return res.data;
 };
 
 export const createApplication = async (data) => {
-  // TODO: Replace with actual API call
-  // return api.post('/applications', data);
-  return { data: null };
+  const res = await api.post("/applications", data);
+  return res.data;
 };
 
 export const updateApplication = async (id, data) => {
-  // TODO: Replace with actual API call
-  // return api.patch(`/applications/${id}`, data);
-  return { data: null };
+  const res = await api.patch(`/applications/${id}`, data);
+  return res.data;
 };

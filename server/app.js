@@ -1,8 +1,8 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import { env } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import jobsRoutes from "./routes/jobs.routes.js";
 import applicationsRoutes from "./routes/applications.routes.js";
@@ -33,8 +33,9 @@ app.use(globalErrorHandler);
 
 const startServer = async () => {
   await connectDB();
-  app.listen(env.port, () => {
-    console.log(`Server is running on port ${env.port}`);
+  const port = Number(process.env.PORT) || 5000;
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
   });
 };
 
