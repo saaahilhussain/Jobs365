@@ -1,13 +1,6 @@
 export default function Settings() {
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Apify Configuration */}
-      <Section title="Apify Configuration">
-        <Field label="API Token" placeholder="apify_api_xxxxxxxxxxxx" type="password" />
-        <Field label="Actor ID" placeholder="actor/job-scraper" />
-        <Field label="Max Results Per Run" placeholder="100" type="number" />
-      </Section>
-
       {/* Notification Settings */}
       <Section title="Notification Settings">
         <Toggle label="Email notifications" defaultChecked />
@@ -24,12 +17,6 @@ export default function Settings() {
         />
         <Field label="Preferred Time (UTC)" placeholder="08:00" />
         <Toggle label="Auto-scrape on startup" defaultChecked />
-      </Section>
-
-      {/* API Configuration */}
-      <Section title="API Configuration">
-        <Field label="Backend API URL" placeholder="http://localhost:5000/api" />
-        <Field label="Request Timeout (ms)" placeholder="10000" type="number" />
       </Section>
 
       <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">

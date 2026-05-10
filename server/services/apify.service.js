@@ -2,7 +2,7 @@ import axios from "axios";
 
 const APIFY_BASE_URL = "https://api.apify.com/v2";
 const DEFAULT_ACTOR_ID = "misceres/linkedin-jobs-scraper";
-const DEFAULT_TIMEOUT_SECS = 120;
+const DEFAULT_TIMEOUT_SECS = 300;
 const DEFAULT_LIMIT = 20;
 
 const getToken = () => process.env.APIFY_TOKEN;
@@ -30,12 +30,26 @@ const runActor = async (input, timeoutSecs) => {
   const encodedActorId = encodeURIComponent(actorId);
   const runUrl = `${APIFY_BASE_URL}/acts/${encodedActorId}/run-sync-get-dataset-items`;
 
-  const response = await axios.post(runUrl, input, {
-    params: { token, timeout },
-    headers: { "Content-Type": "application/json" },
-  });
+  try {
+    console.log("Calling Apify with:", {
+      urls: input.urls,
+      maxItems: input.maxItems,
+    });
+    const response = await axios.post(runUrl, input, {
+      params: { token, timeout },
+      headers: { "Content-Type": "application/json" },
+    });
 
-  return Array.isArray(response.data) ? response.data : [];
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("Apify API Error Details:", {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
 };
 
 const mapToJob = (item) => ({
@@ -49,11 +63,19 @@ const mapToJob = (item) => ({
 });
 
 export const apifyService = {
-  fetchJobs: async ({ query = "software engineer", location = "remote", limit = DEFAULT_LIMIT } = {}) => {
+  fetchJobs: async ({
+    query = "software engineer",
+    location = "remote",
+    limit = DEFAULT_LIMIT,
+  } = {}) => {
     const normalizedLimit = clampLimit(limit);
+    // Build LinkedIn job search URLs based on query and location
+    const encodedQuery = encodeURIComponent(query);
+    const encodedLocation = encodeURIComponent(location);
+    const linkedInUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodedQuery}&location=${encodedLocation}`;
+
     const actorInput = {
-      query,
-      location,
+      urls: [linkedInUrl],
       maxItems: normalizedLimit,
     };
 

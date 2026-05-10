@@ -25,15 +25,6 @@ export const getScamRatio = async () => {
   return res.data;
 };
 
-export const getRecentJobs = async () => {
-  const res = await api.get("/analytics/recent-jobs");
-  return res.data;
-};
-
-export const getRecentApplications = async () => {
-  const res = await api.get("/analytics/recent-applications");
-  return res.data;
-};
 
 export const getScrapingActivity = async () => {
   const res = await api.get("/analytics/scraping-activity");

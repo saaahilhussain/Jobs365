@@ -7,35 +7,34 @@ import {
   Zap,
 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
-import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import EmptyState from "@/components/ui/EmptyState";
 import {
   getDashboardStats,
-  getRecentJobs,
-  getRecentApplications,
   getScrapingActivity,
 } from "@/api/analyticsApi";
+import { startScrapeRun } from "@/api/scraperApi";
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
-  const [recentJobs, setRecentJobs] = useState([]);
-  const [recentApplications, setRecentApplications] = useState([]);
+
   const [scrapingActivity, setScrapingActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("software engineer");
+  const [location, setLocation] = useState("remote");
+  const [limit, setLimit] = useState("20");
+  const [isScraping, setIsScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState(null);
+  const [scrapeError, setScrapeError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, jobsRes, appsRes, activityRes] = await Promise.all([
+        const [statsRes, activityRes] = await Promise.all([
           getDashboardStats(),
-          getRecentJobs(),
-          getRecentApplications(),
           getScrapingActivity(),
         ]);
         setStats(statsRes);
-        setRecentJobs(jobsRes);
-        setRecentApplications(appsRes);
         setScrapingActivity(activityRes);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -45,6 +44,25 @@ export default function Dashboard() {
     };
     fetchData();
   }, []);
+
+  const handleStartScraping = async () => {
+    setIsScraping(true);
+    setScrapeError("");
+    setScrapeResult(null);
+
+    try {
+      const data = await startScrapeRun({
+        query,
+        location,
+        limit: Number(limit) || 20,
+      });
+      setScrapeResult(data);
+    } catch (err) {
+      setScrapeError(err?.response?.data?.message || "Failed to start scraping");
+    } finally {
+      setIsScraping(false);
+    }
+  };
 
   if (loading) return <LoadingSpinner text="Loading dashboard..." />;
 
@@ -86,54 +104,49 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Recent Jobs & Applications */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Recent Jobs */}
-        <div className="rounded-lg border border-border">
-          <div className="border-b border-border px-5 py-3">
-            <h2 className="text-sm font-semibold">Recent Jobs</h2>
-          </div>
-          {recentJobs.length === 0 ? (
-            <EmptyState title="No recent jobs" description="Jobs will appear here once scraped." />
-          ) : (
-            <div className="divide-y divide-border">
-              {recentJobs.map((job) => (
-                <div key={job._id || job.id} className="flex items-center justify-between px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{job.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {job.company} · {job.source}
-                    </p>
-                  </div>
-                  <StatusBadge status={job.status} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Recent Applications */}
-        <div className="rounded-lg border border-border">
-          <div className="border-b border-border px-5 py-3">
-            <h2 className="text-sm font-semibold">Recent Applications</h2>
+      {/* Manual Scraping */}
+      <div className="rounded-lg border border-border">
+        <div className="border-b border-border px-5 py-3">
+          <h2 className="text-sm font-semibold">Start Scraping</h2>
+        </div>
+        <div className="space-y-4 px-5 py-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search query"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Location"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <input
+              value={limit}
+              onChange={(e) => setLimit(e.target.value)}
+              type="number"
+              min="1"
+              max="100"
+              placeholder="Limit"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
           </div>
-          {recentApplications.length === 0 ? (
-            <EmptyState title="No recent applications" description="Track your applications here." />
-          ) : (
-            <div className="divide-y divide-border">
-              {recentApplications.map((app) => (
-                <div key={app._id || app.id} className="flex items-center justify-between px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{app.jobTitle}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {app.company} · {app.appliedDate || "Not applied"}
-                    </p>
-                  </div>
-                  <StatusBadge status={app.status} />
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={handleStartScraping}
+            disabled={isScraping}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isScraping ? "Scraping..." : "Start Scraping"}
+          </button>
+          {scrapeError ? <p className="text-sm text-red-600">{scrapeError}</p> : null}
+          {scrapeResult ? (
+            <p className="text-sm text-muted-foreground">
+              Scrape completed. Received {scrapeResult.count ?? 0} jobs.
+            </p>
+          ) : null}
         </div>
       </div>
 
