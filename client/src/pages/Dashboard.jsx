@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
-import { Briefcase, Send, Clock, ShieldAlert, Zap } from "lucide-react";
+import {
+  Briefcase,
+  Send,
+  Clock,
+  ShieldAlert,
+  Zap,
+  ChevronRight,
+  Search,
+  MapPin,
+  ExternalLink,
+} from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import EmptyState from "@/components/ui/EmptyState";
@@ -86,6 +96,14 @@ export default function Dashboard() {
   }, [selectedActivityId, selectedResultsPage, selectedResultsLimit]);
 
   const handleSelectActivity = async (activityId) => {
+    // Toggle: if clicking the same activity, collapse it
+    if (selectedActivityId === activityId) {
+      setSelectedActivityId(null);
+      setSelectedResults([]);
+      setSelectedResultsMeta(null);
+      return;
+    }
+
     setSelectedActivityId(activityId);
     setSelectedResultsPage(1);
     setLoadingSelectedResults(true);
@@ -215,6 +233,14 @@ export default function Dashboard() {
     }
   };
 
+  const getStatusClasses = (status) => {
+    if (status === "completed" || status === "success")
+      return "bg-green-50 text-green-700";
+    if (status === "paused") return "bg-orange-50 text-orange-700";
+    if (status === "failed") return "bg-red-50 text-red-700";
+    return "bg-yellow-50 text-yellow-700";
+  };
+
   if (loading) return <LoadingSpinner text="Loading dashboard..." />;
 
   return (
@@ -312,7 +338,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Scraping Activity */}
+      {/* Scraping Activity — Accordion */}
       <div className="rounded-lg border border-border">
         <div className="border-b border-border px-5 py-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Scraping Activity</h2>
@@ -329,116 +355,216 @@ export default function Dashboard() {
           />
         ) : (
           <div className="divide-y divide-border">
-            {scrapingActivity.map((activity, i) => (
-              <div
-                key={activity.id || i}
-                className={`flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-muted/40 ${
-                  selectedActivityId === activity.id ? "bg-muted/60" : ""
-                }`}
-                onClick={() => activity.id && handleSelectActivity(activity.id)}
-              >
-                <div>
-                  <p className="text-sm font-medium">{activity.source}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {activity.jobs} jobs scraped · {activity.time}
-                  </p>
+            {scrapingActivity.map((activity, i) => {
+              const isSelected = selectedActivityId === activity.id;
+
+              return (
+                <div key={activity.id || i}>
+                  {/* Activity Row */}
+                  <div
+                    className={`flex items-center justify-between px-5 py-3 cursor-pointer transition-colors select-none group ${
+                      isSelected
+                        ? "bg-muted/60 border-l-2 border-l-primary"
+                        : "hover:bg-muted/40 border-l-2 border-l-transparent"
+                    }`}
+                    onClick={() =>
+                      activity.id && handleSelectActivity(activity.id)
+                    }
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Chevron indicator */}
+                      <ChevronRight
+                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                          isSelected ? "rotate-90" : "group-hover:translate-x-0.5"
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {activity.source}
+                          {activity.query ? (
+                            <span className="ml-2 text-muted-foreground font-normal">
+                              — {activity.query}
+                            </span>
+                          ) : null}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          <span>{activity.jobs} jobs scraped</span>
+                          <span className="text-border">·</span>
+                          <span>{activity.time}</span>
+                          {activity.location ? (
+                            <>
+                              <span className="text-border">·</span>
+                              <span className="inline-flex items-center gap-0.5">
+                                <MapPin className="h-3 w-3" />
+                                {activity.location}
+                              </span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${getStatusClasses(
+                        activity.status,
+                      )}`}
+                    >
+                      {activity.status}
+                    </span>
+                  </div>
+
+                  {/* Inline Accordion Panel — Jobs List */}
+                  {isSelected && (
+                    <div className="animate-accordion-down bg-muted/20 border-l-2 border-l-primary">
+                      {/* Controls bar */}
+                      <div className="flex items-center justify-between px-5 py-2 border-b border-border/60">
+                        <div className="text-xs text-muted-foreground">
+                          {selectedResultsMeta ? (
+                            <>
+                              <span className="font-medium text-foreground">
+                                {selectedResultsMeta.totalResults || 0}
+                              </span>{" "}
+                              jobs total
+                              {selectedResultsMeta.totalResults > 0
+                                ? ` · Showing ${
+                                    (selectedResultsMeta.page - 1) *
+                                      selectedResultsMeta.limit +
+                                    1
+                                  }–${Math.min(
+                                    selectedResultsMeta.page *
+                                      selectedResultsMeta.limit,
+                                    selectedResultsMeta.totalResults,
+                                  )}`
+                                : ""}
+                              {" · "}
+                              <span
+                                className={`capitalize font-medium ${
+                                  selectedResultsMeta.status === "completed"
+                                    ? "text-green-600"
+                                    : selectedResultsMeta.status === "running"
+                                      ? "text-yellow-600"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {selectedResultsMeta.status}
+                              </span>
+                            </>
+                          ) : (
+                            "Loading..."
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePauseSelectedRun();
+                            }}
+                            disabled={
+                              !selectedResultsMeta ||
+                              !["running", "pending"].includes(
+                                selectedResultsMeta.status,
+                              )
+                            }
+                            className="rounded-md border border-orange-300 px-3 py-1 text-xs font-medium text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                          >
+                            Pause
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleResumeSelectedRun();
+                            }}
+                            disabled={
+                              !selectedResultsMeta ||
+                              !["paused", "failed", "completed"].includes(
+                                selectedResultsMeta.status,
+                              )
+                            }
+                            className="rounded-md border border-blue-300 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                          >
+                            Resume
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Job cards */}
+                      <div className="px-5 py-3">
+                        {loadingSelectedResults ? (
+                          <LoadingSpinner text="Loading results..." />
+                        ) : selectedResults.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-4 text-center">
+                            No results yet for this activity.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {selectedResults.map((job) => (
+                              <div
+                                key={job._id}
+                                className="flex items-start justify-between gap-3 rounded-md border border-border bg-background p-3 hover:border-primary/30 transition-colors"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    {/* Company initial avatar */}
+                                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                      {(job.company || "?")[0].toUpperCase()}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium truncate">
+                                        {job.title}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground truncate">
+                                        {job.company}
+                                        {job.location
+                                          ? ` · ${job.location}`
+                                          : ""}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                {job.url ? (
+                                  <a
+                                    href={job.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1 shrink-0 rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    View
+                                  </a>
+                                ) : null}
+                              </div>
+                            ))}
+
+                            {/* Pagination + summary */}
+                            {selectedResultsMeta?.totalPages > 1 ? (
+                              <div className="flex items-center justify-between pt-2">
+                                <p className="text-xs text-muted-foreground">
+                                  Page {selectedResultsMeta.page || selectedResultsPage} of{" "}
+                                  {selectedResultsMeta.totalPages}
+                                </p>
+                                <Pagination
+                                  currentPage={
+                                    selectedResultsMeta.page ||
+                                    selectedResultsPage
+                                  }
+                                  totalPages={selectedResultsMeta.totalPages}
+                                  onPageChange={(page) => {
+                                    handleSelectedResultsPageChange(page);
+                                  }}
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    activity.status === "completed" ||
-                    activity.status === "success"
-                      ? "bg-green-50 text-green-700"
-                      : activity.status === "paused"
-                        ? "bg-orange-50 text-orange-700"
-                        : activity.status === "failed"
-                          ? "bg-red-50 text-red-700"
-                          : "bg-yellow-50 text-yellow-700"
-                  }`}
-                >
-                  {activity.status}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
-
-      {/* Selected Activity Results */}
-      {selectedActivityId ? (
-        <div className="rounded-lg border border-border">
-          <div className="border-b border-border px-5 py-3 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold">Selected Activity Results</h2>
-              {selectedResultsMeta ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Run {selectedResultsMeta.apifyRunId || "N/A"} ·{" "}
-                  {selectedResultsMeta.status} · {selectedResultsMeta.totalResults || 0} jobs
-                </p>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePauseSelectedRun}
-                disabled={!selectedResultsMeta || !["running", "pending"].includes(selectedResultsMeta.status)}
-                className="rounded-md border border-orange-300 px-3 py-1 text-xs font-medium text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Pause
-              </button>
-              <button
-                onClick={handleResumeSelectedRun}
-                disabled={!selectedResultsMeta || !["paused", "failed", "completed"].includes(selectedResultsMeta.status)}
-                className="rounded-md border border-blue-300 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Resume
-              </button>
-            </div>
-          </div>
-          <div className="px-5 py-4">
-            {loadingSelectedResults ? (
-              <LoadingSpinner text="Loading results..." />
-            ) : selectedResults.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No results yet for this activity.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {selectedResults.map((job) => (
-                  <div
-                    key={job._id}
-                    className="rounded-md border border-border p-3"
-                  >
-                    <p className="text-sm font-medium">{job.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {job.company}
-                      {job.location ? ` · ${job.location}` : ""}
-                    </p>
-                    {job.url ? (
-                      <a
-                        href={job.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-blue-600 hover:underline"
-                      >
-                        View job posting
-                      </a>
-                    ) : null}
-                  </div>
-                ))}
-
-                {selectedResultsMeta?.totalPages > 1 ? (
-                  <div className="pt-2">
-                    <Pagination
-                      currentPage={selectedResultsMeta.page || selectedResultsPage}
-                      totalPages={selectedResultsMeta.totalPages}
-                      onPageChange={handleSelectedResultsPageChange}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

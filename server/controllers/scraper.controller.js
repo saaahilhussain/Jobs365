@@ -14,7 +14,9 @@ const enforceRunBudgetIfNeeded = async (run) => {
   if (!run?.apifyRunId || !run?.runBudgetSecs) return false;
   if (!["pending", "running"].includes(run.status)) return false;
 
-  const startedAtMs = run.startedAt ? new Date(run.startedAt).getTime() : Date.now();
+  const startedAtMs = run.startedAt
+    ? new Date(run.startedAt).getTime()
+    : Date.now();
   const elapsedSecs = (Date.now() - startedAtMs) / 1000;
   if (elapsedSecs < run.runBudgetSecs) return false;
 
@@ -141,10 +143,7 @@ export const syncPendingRuns = async (req, res) => {
             syncedItems: nextSyncedItems,
             finishedAt: new Date(finishedAt || new Date()),
           });
-        } else if (
-          status === "FAILED" ||
-          status === "TIMED-OUT"
-        ) {
+        } else if (status === "FAILED" || status === "TIMED-OUT") {
           await run.updateOne({
             status: "failed",
             jobsFetched: nextSyncedItems,

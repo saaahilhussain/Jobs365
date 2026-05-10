@@ -45,3 +45,21 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* Accordion slide-down animation */
+@keyframes accordion-slide-down {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 800px;
+  }
+}
+
+.animate-accordion-down {
+  animation: accordion-slide-down 0.3s ease-out forwards;
+  overflow: hidden;
+}
+

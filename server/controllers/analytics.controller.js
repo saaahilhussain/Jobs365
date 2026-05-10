@@ -33,6 +33,8 @@ export const getScrapingActivity = async (req, res) => {
     apifyRunId: run.apifyRunId || null,
     source: "linkedin",
     jobs: run.jobsFetched,
+    query: run.query || null,
+    location: run.location || null,
     time: run.finishedAt
       ? new Date(run.finishedAt).toLocaleString()
       : "In progress",
