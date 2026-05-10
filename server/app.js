@@ -4,12 +4,16 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { connectDB } from "./config/db.js";
+import { registerScrapeJobsCron } from "./cron/scrapeJobs.cron.js";
 import jobsRoutes from "./routes/jobs.routes.js";
 import applicationsRoutes from "./routes/applications.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import scraperRoutes from "./routes/scraper.routes.js";
 import systemRoutes from "./routes/system.routes.js";
-import { notFoundHandler, globalErrorHandler } from "./middlewares/error.middleware.js";
+import {
+  notFoundHandler,
+  globalErrorHandler,
+} from "./middlewares/error.middleware.js";
 
 const app = express();
 
@@ -33,6 +37,7 @@ app.use(globalErrorHandler);
 
 const startServer = async () => {
   await connectDB();
+  registerScrapeJobsCron();
   const port = Number(process.env.PORT) || 5000;
   app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

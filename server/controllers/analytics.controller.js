@@ -5,7 +5,9 @@ import { Application } from "../models/application.model.js";
 export const getDashboardStats = async (req, res) => {
   const totalJobs = await Job.countDocuments();
   const applicationsSent = await Application.countDocuments();
-  const pendingApplications = await Application.countDocuments({ status: "pending" });
+  const pendingApplications = await Application.countDocuments({
+    status: "pending",
+  });
   const scamJobsFiltered = await Job.countDocuments({ scamDetected: true });
 
   res.status(200).json({
@@ -27,6 +29,8 @@ export const getScrapingActivity = async (req, res) => {
     .lean();
 
   const activity = recentRuns.map((run) => ({
+    id: run._id,
+    apifyRunId: run.apifyRunId || null,
     source: "linkedin",
     jobs: run.jobsFetched,
     time: run.finishedAt

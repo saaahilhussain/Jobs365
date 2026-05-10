@@ -52,6 +52,137 @@ const runActor = async (input, timeoutSecs) => {
   }
 };
 
+const startAsyncRun = async (input) => {
+  const token = getToken();
+
+  if (!token) {
+    throw new Error("APIFY_TOKEN is missing. Set it in server/.env");
+  }
+
+  const actorId = getActorId();
+  const encodedActorId = encodeURIComponent(actorId);
+  const runUrl = `${APIFY_BASE_URL}/acts/${encodedActorId}/runs`;
+
+  try {
+    console.log("Starting async Apify run with:", {
+      urls: input.urls,
+      maxItems: input.maxItems,
+    });
+    const response = await axios.post(runUrl, input, {
+      params: { token },
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const run = response.data?.data ?? response.data ?? {};
+    const runId = run.id || run.runId || run.actorRunId || null;
+    const datasetId = run.defaultDatasetId || run.datasetId || null;
+
+    if (!runId) {
+      console.error("Apify run response did not include an id:", {
+        topLevelKeys: response.data ? Object.keys(response.data) : [],
+        nestedKeys:
+          response.data?.data && typeof response.data.data === "object"
+            ? Object.keys(response.data.data)
+            : [],
+        rawStatus: response.status,
+      });
+      throw new Error("Apify accepted the request but did not return a run id");
+    }
+
+    return {
+      runId,
+      datasetId,
+      status: run.status,
+    };
+  } catch (error) {
+    console.error("Failed to start async Apify run:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
+};
+
+const checkRunStatus = async (runId) => {
+  const token = getToken();
+
+  if (!token) {
+    throw new Error("APIFY_TOKEN is missing");
+  }
+
+  const statusUrl = `${APIFY_BASE_URL}/actor-runs/${runId}`;
+
+  try {
+    const response = await axios.get(statusUrl, {
+      params: { token },
+      headers: { "Content-Type": "application/json" },
+    });
+
+    return {
+      status: response.data.status,
+      datasetId: response.data.defaultDatasetId,
+      finishedAt: response.data.finishedAt,
+    };
+  } catch (error) {
+    console.error("Failed to check run status:", error.message);
+    throw error;
+  }
+};
+
+const abortRun = async (runId) => {
+  const token = getToken();
+
+  if (!token) {
+    throw new Error("APIFY_TOKEN is missing");
+  }
+
+  const abortUrl = `${APIFY_BASE_URL}/actor-runs/${runId}/abort`;
+
+  try {
+    await axios.post(
+      abortUrl,
+      {},
+      {
+        params: { token },
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to abort run:", {
+      runId,
+      status: error.response?.status,
+      message: error.message,
+    });
+    throw error;
+  }
+};
+
+const fetchDatasetItems = async (datasetId, options = {}) => {
+  const token = getToken();
+
+  if (!token) {
+    throw new Error("APIFY_TOKEN is missing");
+  }
+
+  const itemsUrl = `${APIFY_BASE_URL}/datasets/${datasetId}/items`;
+  const offset = Number(options.offset) || 0;
+
+  try {
+    const response = await axios.get(itemsUrl, {
+      params: { token, offset },
+      headers: { "Content-Type": "application/json" },
+    });
+
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("Failed to fetch dataset items:", error.message);
+    throw error;
+  }
+};
+
 const mapToJob = (item) => ({
   title: item.title || item.positionName || "Untitled job",
   company: item.companyName || item.company || "Unknown company",
@@ -81,5 +212,31 @@ export const apifyService = {
 
     const items = await runActor(actorInput, process.env.APIFY_TIMEOUT_SECS);
     return items.slice(0, normalizedLimit).map(mapToJob);
+  },
+
+  startAsyncRun: async ({
+    query = "software engineer",
+    location = "remote",
+    limit = DEFAULT_LIMIT,
+  } = {}) => {
+    const normalizedLimit = clampLimit(limit);
+    const encodedQuery = encodeURIComponent(query);
+    const encodedLocation = encodeURIComponent(location);
+    const linkedInUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodedQuery}&location=${encodedLocation}`;
+
+    const actorInput = {
+      urls: [linkedInUrl],
+      maxItems: normalizedLimit,
+    };
+
+    return startAsyncRun(actorInput);
+  },
+
+  checkRunStatus,
+  abortRun,
+
+  fetchDatasetItems: async (datasetId, options = {}) => {
+    const items = await fetchDatasetItems(datasetId, options);
+    return items.map(mapToJob);
   },
 };

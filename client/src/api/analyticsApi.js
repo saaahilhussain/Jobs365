@@ -25,7 +25,6 @@ export const getScamRatio = async () => {
   return res.data;
 };
 
-
 export const getScrapingActivity = async () => {
   const res = await api.get("/analytics/scraping-activity");
   return res.data.data || [];
