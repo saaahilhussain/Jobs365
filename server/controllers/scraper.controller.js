@@ -1,5 +1,6 @@
 import { apifyService } from "../services/apify.service.js";
 import { ScrapeRun } from "../models/scrapeRun.model.js";
+import { Job } from "../models/job.model.js";
 
 export const getScraperStatus = async (req, res) => {
   // Create a new scrape run record
@@ -18,11 +19,20 @@ export const getScraperStatus = async (req, res) => {
         limit: req.query.limit,
       });
 
+      // Save jobs to database
+      if (jobs.length > 0) {
+        await Job.insertMany(jobs, { ordered: false }).catch(() => {
+          // Ignore duplicate key errors
+        });
+      }
+
       await scrapeRun.updateOne({
         status: "completed",
         jobsFetched: jobs.length,
         finishedAt: new Date(),
       });
+      
+      console.log(`Scrape job completed: ${jobs.length} jobs saved`);
     } catch (error) {
       console.error("Background scrape job failed:", error.message);
       await scrapeRun.updateOne({

@@ -57,9 +57,20 @@ export default function Dashboard() {
         limit: Number(limit) || 20,
       });
       setScrapeResult(data);
+      
+      // Refresh scraping activity after 3 seconds to show the queued job
+      setTimeout(async () => {
+        try {
+          const activityRes = await getScrapingActivity();
+          setScrapingActivity(activityRes.data || []);
+        } catch (err) {
+          console.error("Failed to refresh scraping activity:", err);
+        } finally {
+          setIsScraping(false);
+        }
+      }, 3000);
     } catch (err) {
       setScrapeError(err?.response?.data?.message || "Failed to start scraping");
-    } finally {
       setIsScraping(false);
     }
   };
@@ -142,10 +153,10 @@ export default function Dashboard() {
             {isScraping ? "Scraping..." : "Start Scraping"}
           </button>
           {scrapeError ? <p className="text-sm text-red-600">{scrapeError}</p> : null}
-          {scrapeResult ? (
-            <p className="text-sm text-muted-foreground">
-              Scrape completed. Received {scrapeResult.count ?? 0} jobs.
-            </p>
+          {isScraping ? (
+            <p className="text-sm text-muted-foreground">Scraping in progress...</p>
+          ) : scrapeResult ? (
+            <p className="text-sm text-green-600">{scrapeResult.message}</p>
           ) : null}
         </div>
       </div>

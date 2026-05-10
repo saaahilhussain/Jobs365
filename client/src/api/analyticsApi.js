@@ -2,7 +2,7 @@ import api from "./client";
 
 export const getDashboardStats = async () => {
   const res = await api.get("/analytics/dashboard");
-  return res.data;
+  return res.data.data;
 };
 
 export const getWeeklyApplications = async () => {
@@ -28,5 +28,5 @@ export const getScamRatio = async () => {
 
 export const getScrapingActivity = async () => {
   const res = await api.get("/analytics/scraping-activity");
-  return res.data;
+  return res.data.data || [];
 };
