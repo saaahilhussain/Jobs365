@@ -59,6 +59,7 @@ export default function Dashboard() {
   const selectedActivityIdRef = useRef(null);
   const selectedResultsPageRef = useRef(1);
   const selectedResultsLimitRef = useRef(10);
+  const isSyncingRef = useRef(false);  // ref so interval doesn't restart on each sync
   selectedActivityIdRef.current = selectedActivityId;
   selectedResultsPageRef.current = selectedResultsPage;
   selectedResultsLimitRef.current = selectedResultsLimit;
@@ -86,19 +87,19 @@ export default function Dashboard() {
   // ---------------------------------------------------------------------------
   // Unified countdown + sync.
   //
-  // The interval ticks countdownRef every 1s.
-  // When it hits 0 we:
-  //   1. Set isSyncing = true  (freezes the display at "Syncing…")
-  //   2. Await refreshData()   (server sync + UI update)
-  //   3. Reset countdownRef = 10, isSyncing = false
-  //
-  // This guarantees jobs appear EXACTLY when the timer finishes — never in
-  // the middle of a cycle — because the counter is paused during the fetch.
+  // The timer runs ONLY while cronTimerActive is true (an Apify run is in
+  // progress). When the run reaches a terminal state (completed / failed),
+  // refreshData sets cronTimerActive = false and the effect cleans up the
+  // interval. Opening a completed/paused activity does NOT restart the timer.
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!cronTimerActive && !selectedActivityId) return;
+    if (!cronTimerActive) return; // ← only poll when there is an active run
 
     const refreshData = async () => {
+      if (isSyncingRef.current) return; // prevent overlapping syncs
+      isSyncingRef.current = true;
+      setIsSyncing(true);
+
       try {
         await syncPendingRuns();
 
@@ -115,34 +116,35 @@ export default function Dashboard() {
           setSelectedResultsMeta(runResults);
 
           // Stop the timer once the run is in a terminal state
-          if (["completed", "failed"].includes(runResults.status)) {
+          if (["completed", "failed", "paused"].includes(runResults.status)) {
             setCronTimerActive(false);
           }
         }
       } catch (err) {
         console.error("Failed to refresh activity/results:", err);
+      } finally {
+        isSyncingRef.current = false;
+        setIsSyncing(false);
       }
     };
 
-    const interval = setInterval(async () => {
-      // While a sync is in-flight, freeze — don't keep decrementing
-      if (isSyncing) return;
+    const interval = setInterval(() => {
+      if (isSyncingRef.current) return; // freeze while fetch is in-flight
 
       countdownRef.current -= 1;
       setCronCountdown(countdownRef.current);
 
       if (countdownRef.current <= 0) {
-        setIsSyncing(true);
-        await refreshData();
-        countdownRef.current = 10;
-        setCronCountdown(10);
-        setIsSyncing(false);
+        refreshData().then(() => {
+          countdownRef.current = 10;
+          setCronCountdown(10);
+        });
       }
     }, 1000);
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cronTimerActive, selectedActivityId, isSyncing]);
+  }, [cronTimerActive]);
 
   // ---------------------------------------------------------------------------
   // Handlers

@@ -119,10 +119,13 @@ const checkRunStatus = async (runId) => {
       headers: { "Content-Type": "application/json" },
     });
 
+    // Apify wraps all responses in { data: { ... } }
+    const run = response.data?.data ?? response.data ?? {};
+
     return {
-      status: response.data.status,
-      datasetId: response.data.defaultDatasetId,
-      finishedAt: response.data.finishedAt,
+      status: run.status,
+      datasetId: run.defaultDatasetId,
+      finishedAt: run.finishedAt,
     };
   } catch (error) {
     console.error("Failed to check run status:", error.message);
