@@ -6,6 +6,7 @@ import {
   getRunResults,
   pauseRun,
   resumeRun,
+  deleteRun,
 } from "../controllers/scraper.controller.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -17,5 +18,6 @@ router.post("/:jobId/pause", asyncHandler(pauseRun));
 router.post("/:jobId/resume", asyncHandler(resumeRun));
 router.get("/:jobId/results", asyncHandler(getRunResults));
 router.get("/:jobId", asyncHandler(getJobStatus));
+router.delete("/:jobId", asyncHandler(deleteRun));
 
 export default router;

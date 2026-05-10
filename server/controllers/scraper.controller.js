@@ -21,10 +21,11 @@ const enforceRunBudgetIfNeeded = async (run) => {
   if (elapsedSecs < run.runBudgetSecs) return false;
 
   await apifyService.abortRun(run.apifyRunId);
+  // Budget expiry = natural completion, NOT a user-initiated pause
   await ScrapeRun.updateOne(
     { _id: run._id },
     {
-      status: "paused",
+      status: "completed",
       stopReason: "budget",
       finishedAt: new Date(),
     },
@@ -371,6 +372,36 @@ export const resumeRun = async (req, res) => {
         status: resumedRun.status,
         message: `Run resumed with new Apify run ID: ${runId}`,
       },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const deleteRun = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const run = await ScrapeRun.findById(jobId);
+
+    if (!run) {
+      return res.status(404).json({ success: false, message: "Run not found" });
+    }
+
+    // Abort the Apify run if it is still active
+    if (run.apifyRunId && ["pending", "running"].includes(run.status)) {
+      await apifyService.abortRun(run.apifyRunId).catch(() => {});
+    }
+
+    // Delete all jobs linked to this run, then the run itself
+    await Job.deleteMany({ scrapeRunId: run._id });
+    await ScrapeRun.deleteOne({ _id: run._id });
+
+    return res.status(200).json({
+      success: true,
+      data: { id: jobId, deleted: true },
     });
   } catch (error) {
     return res.status(500).json({

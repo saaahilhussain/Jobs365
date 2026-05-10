@@ -37,3 +37,9 @@ export const resumeScrapeRun = async (jobId) => {
   const res = await api.post(`/scraper/${jobId}/resume`);
   return res.data?.data ?? null;
 };
+
+export const deleteScrapeRun = async (jobId) => {
+  const res = await api.delete(`/scraper/${jobId}`);
+  return res.data?.data ?? null;
+};
+

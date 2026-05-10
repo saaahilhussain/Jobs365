@@ -13,10 +13,11 @@ const enforceRunBudgetIfNeeded = async (run) => {
   if (elapsedSecs < run.runBudgetSecs) return false;
 
   await apifyService.abortRun(run.apifyRunId);
+  // Budget expiry = natural completion, NOT a user-initiated pause
   await ScrapeRun.updateOne(
     { _id: run._id },
     {
-      status: "paused",
+      status: "completed",
       stopReason: "budget",
       finishedAt: new Date(),
     },

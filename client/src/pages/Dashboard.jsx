@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Briefcase,
   Send,
@@ -6,9 +6,11 @@ import {
   ShieldAlert,
   Zap,
   ChevronRight,
-  Search,
   MapPin,
   ExternalLink,
+  Pause,
+  Play,
+  Trash2,
 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -21,6 +23,7 @@ import {
   getScrapeRunResults,
   pauseScrapeRun,
   resumeScrapeRun,
+  deleteScrapeRun,
 } from "@/api/scraperApi";
 
 export default function Dashboard() {
@@ -34,8 +37,17 @@ export default function Dashboard() {
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState(null);
   const [scrapeError, setScrapeError] = useState("");
-  const [cronCountdown, setCronCountdown] = useState(10);
+
+  // --- Timer ---
+  // cronTimerActive: true when we have an active Apify run to poll
+  // cronCountdown:   visual display value (10 → 1 → "syncing..." → 10)
+  // countdownRef:    authoritative mutable counter used inside setInterval
   const [cronTimerActive, setCronTimerActive] = useState(false);
+  const [cronCountdown, setCronCountdown] = useState(10);
+  const [isSyncing, setIsSyncing] = useState(false); // true while awaiting refreshData
+  const countdownRef = useRef(10);
+
+  // --- Selected activity (accordion) ---
   const [selectedActivityId, setSelectedActivityId] = useState(null);
   const [selectedResults, setSelectedResults] = useState([]);
   const [selectedResultsMeta, setSelectedResultsMeta] = useState(null);
@@ -43,6 +55,15 @@ export default function Dashboard() {
   const [selectedResultsPage, setSelectedResultsPage] = useState(1);
   const [selectedResultsLimit] = useState(10);
 
+  // Stable refs so refreshData can read latest values without stale closures
+  const selectedActivityIdRef = useRef(null);
+  const selectedResultsPageRef = useRef(1);
+  const selectedResultsLimitRef = useRef(10);
+  selectedActivityIdRef.current = selectedActivityId;
+  selectedResultsPageRef.current = selectedResultsPage;
+  selectedResultsLimitRef.current = selectedResultsLimit;
+
+  // Initial data load
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -62,41 +83,72 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // Cron countdown timer starts only after Apify acknowledges a run.
+  // ---------------------------------------------------------------------------
+  // Unified countdown + sync.
+  //
+  // The interval ticks countdownRef every 1s.
+  // When it hits 0 we:
+  //   1. Set isSyncing = true  (freezes the display at "Syncing…")
+  //   2. Await refreshData()   (server sync + UI update)
+  //   3. Reset countdownRef = 10, isSyncing = false
+  //
+  // This guarantees jobs appear EXACTLY when the timer finishes — never in
+  // the middle of a cycle — because the counter is paused during the fetch.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!cronTimerActive) return;
+    if (!cronTimerActive && !selectedActivityId) return;
 
-    const interval = setInterval(() => {
-      setCronCountdown((prev) => (prev === 1 ? 10 : prev - 1));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [cronTimerActive]);
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
+    const refreshData = async () => {
       try {
+        await syncPendingRuns();
+
         const activityRes = await getScrapingActivity();
         setScrapingActivity(activityRes || []);
 
-        if (selectedActivityId) {
-          const runResults = await getScrapeRunResults(selectedActivityId, {
-            page: selectedResultsPage,
-            limit: selectedResultsLimit,
+        const currentId = selectedActivityIdRef.current;
+        if (currentId) {
+          const runResults = await getScrapeRunResults(currentId, {
+            page: selectedResultsPageRef.current,
+            limit: selectedResultsLimitRef.current,
           });
           setSelectedResults(runResults.results || []);
           setSelectedResultsMeta(runResults);
+
+          // Stop the timer once the run is in a terminal state
+          if (["completed", "failed"].includes(runResults.status)) {
+            setCronTimerActive(false);
+          }
         }
       } catch (err) {
         console.error("Failed to refresh activity/results:", err);
       }
-    }, 10000);
+    };
+
+    const interval = setInterval(async () => {
+      // While a sync is in-flight, freeze — don't keep decrementing
+      if (isSyncing) return;
+
+      countdownRef.current -= 1;
+      setCronCountdown(countdownRef.current);
+
+      if (countdownRef.current <= 0) {
+        setIsSyncing(true);
+        await refreshData();
+        countdownRef.current = 10;
+        setCronCountdown(10);
+        setIsSyncing(false);
+      }
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [selectedActivityId, selectedResultsPage, selectedResultsLimit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cronTimerActive, selectedActivityId, isSyncing]);
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   const handleSelectActivity = async (activityId) => {
-    // Toggle: if clicking the same activity, collapse it
     if (selectedActivityId === activityId) {
       setSelectedActivityId(null);
       setSelectedResults([]);
@@ -138,11 +190,12 @@ export default function Dashboard() {
         runBudgetSecs: Number(runBudgetSecs) || 30,
       });
       setScrapeResult(data);
+      countdownRef.current = 10;
       setCronCountdown(10);
       setCronTimerActive(Boolean(data.apifyRunId));
       setIsScraping(false);
 
-      // Refresh scraping activity after 5 seconds to show the queued job
+      // Show the new queued row quickly
       setTimeout(async () => {
         try {
           const activityRes = await getScrapingActivity();
@@ -159,56 +212,72 @@ export default function Dashboard() {
     }
   };
 
-  const handlePauseSelectedRun = async () => {
-    if (!selectedActivityId) return;
-
+  const handlePauseRun = async (e, activityId) => {
+    e.stopPropagation();
     try {
-      await pauseScrapeRun(selectedActivityId);
-      const [activityRes, runResults] = await Promise.all([
-        getScrapingActivity(),
-        getScrapeRunResults(selectedActivityId, {
+      await pauseScrapeRun(activityId);
+      const activityRes = await getScrapingActivity();
+      setScrapingActivity(activityRes || []);
+      setCronTimerActive(false);
+
+      if (selectedActivityId === activityId) {
+        const runResults = await getScrapeRunResults(activityId, {
           page: selectedResultsPage,
           limit: selectedResultsLimit,
-        }),
-      ]);
-      setScrapingActivity(activityRes || []);
-      setSelectedResults(runResults.results || []);
-      setSelectedResultsMeta(runResults);
-      setCronTimerActive(false);
+        });
+        setSelectedResults(runResults.results || []);
+        setSelectedResultsMeta(runResults);
+      }
     } catch (err) {
       setScrapeError(err?.response?.data?.message || "Failed to pause run");
     }
   };
 
-  const handleResumeSelectedRun = async () => {
-    if (!selectedActivityId) return;
-
+  const handleResumeRun = async (e, activityId) => {
+    e.stopPropagation();
     try {
-      const resumed = await resumeScrapeRun(selectedActivityId);
+      const resumed = await resumeScrapeRun(activityId);
+
+      const newId = resumed?.jobId || activityId;
       if (resumed?.jobId) {
         setSelectedActivityId(resumed.jobId);
         setSelectedResultsPage(1);
-        setCronCountdown(10);
-        setCronTimerActive(Boolean(resumed.apifyRunId));
       }
+
+      countdownRef.current = 10;
+      setCronCountdown(10);
+      setCronTimerActive(Boolean(resumed?.apifyRunId));
 
       const [activityRes, runResults] = await Promise.all([
         getScrapingActivity(),
-        resumed?.jobId
-          ? getScrapeRunResults(resumed.jobId, {
-              page: 1,
-              limit: selectedResultsLimit,
-            })
-          : getScrapeRunResults(selectedActivityId, {
-              page: selectedResultsPage,
-              limit: selectedResultsLimit,
-            }),
+        getScrapeRunResults(newId, { page: 1, limit: selectedResultsLimit }),
       ]);
       setScrapingActivity(activityRes || []);
       setSelectedResults(runResults.results || []);
       setSelectedResultsMeta(runResults);
     } catch (err) {
       setScrapeError(err?.response?.data?.message || "Failed to resume run");
+    }
+  };
+
+  const handleDeleteRun = async (e, activityId) => {
+    e.stopPropagation();
+    if (!confirm("Delete this scrape run and all its jobs?")) return;
+
+    try {
+      await deleteScrapeRun(activityId);
+
+      // Collapse accordion if the deleted run was selected
+      if (selectedActivityId === activityId) {
+        setSelectedActivityId(null);
+        setSelectedResults([]);
+        setSelectedResultsMeta(null);
+        setCronTimerActive(false);
+      }
+
+      setScrapingActivity((prev) => prev.filter((a) => a.id !== activityId));
+    } catch (err) {
+      setScrapeError(err?.response?.data?.message || "Failed to delete run");
     }
   };
 
@@ -343,11 +412,14 @@ export default function Dashboard() {
         <div className="border-b border-border px-5 py-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Scraping Activity</h2>
           <p className="text-xs text-muted-foreground">
-            {cronTimerActive
-              ? `Cron syncs in ${cronCountdown}s`
-              : "Cron sync idle"}
+            {isSyncing
+              ? "Adding jobs..."
+              : cronTimerActive
+                ? `Adding jobs in ${cronCountdown}s`
+                : "Auto-sync idle"}
           </p>
         </div>
+
         {scrapingActivity.length === 0 ? (
           <EmptyState
             title="No scraping activity"
@@ -357,12 +429,14 @@ export default function Dashboard() {
           <div className="divide-y divide-border">
             {scrapingActivity.map((activity, i) => {
               const isSelected = selectedActivityId === activity.id;
+              const isActive = ["pending", "running"].includes(activity.status);
+              const isPaused = activity.status === "paused";
 
               return (
                 <div key={activity.id || i}>
-                  {/* Activity Row */}
+                  {/* ── Activity Row ── */}
                   <div
-                    className={`flex items-center justify-between px-5 py-3 cursor-pointer transition-colors select-none group ${
+                    className={`flex items-center gap-3 px-5 py-3 cursor-pointer transition-colors select-none group ${
                       isSelected
                         ? "bg-muted/60 border-l-2 border-l-primary"
                         : "hover:bg-muted/40 border-l-2 border-l-transparent"
@@ -371,38 +445,76 @@ export default function Dashboard() {
                       activity.id && handleSelectActivity(activity.id)
                     }
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Chevron indicator */}
-                      <ChevronRight
-                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                          isSelected ? "rotate-90" : "group-hover:translate-x-0.5"
-                        }`}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {activity.source}
-                          {activity.query ? (
-                            <span className="ml-2 text-muted-foreground font-normal">
-                              — {activity.query}
+                    {/* Chevron */}
+                    <ChevronRight
+                      className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                        isSelected
+                          ? "rotate-90"
+                          : "group-hover:translate-x-0.5"
+                      }`}
+                    />
+
+                    {/* Info */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">
+                        {activity.source}
+                        {activity.query ? (
+                          <span className="ml-2 text-muted-foreground font-normal">
+                            — {activity.query}
+                          </span>
+                        ) : null}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                        <span>{activity.jobs} jobs scraped</span>
+                        <span className="text-border">·</span>
+                        <span>{activity.time}</span>
+                        {activity.location ? (
+                          <>
+                            <span className="text-border">·</span>
+                            <span className="inline-flex items-center gap-0.5">
+                              <MapPin className="h-3 w-3" />
+                              {activity.location}
                             </span>
-                          ) : null}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                          <span>{activity.jobs} jobs scraped</span>
-                          <span className="text-border">·</span>
-                          <span>{activity.time}</span>
-                          {activity.location ? (
-                            <>
-                              <span className="text-border">·</span>
-                              <span className="inline-flex items-center gap-0.5">
-                                <MapPin className="h-3 w-3" />
-                                {activity.location}
-                              </span>
-                            </>
-                          ) : null}
-                        </div>
+                          </>
+                        ) : null}
                       </div>
                     </div>
+
+                    {/* Action buttons — right of info, left of status badge */}
+                    <div
+                      className="flex items-center gap-1 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {isActive && (
+                        <button
+                          title="Pause run"
+                          onClick={(e) => handlePauseRun(e, activity.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-orange-300 px-2 py-1 text-xs font-medium text-orange-700 hover:bg-orange-50 transition-colors"
+                        >
+                          <Pause className="h-3 w-3" />
+                          Pause
+                        </button>
+                      )}
+                      {isPaused && (
+                        <button
+                          title="Resume run"
+                          onClick={(e) => handleResumeRun(e, activity.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-blue-300 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 transition-colors"
+                        >
+                          <Play className="h-3 w-3" />
+                          Resume
+                        </button>
+                      )}
+                      <button
+                        title="Delete run"
+                        onClick={(e) => handleDeleteRun(e, activity.id)}
+                        className="inline-flex items-center justify-center rounded-md border border-border p-1 text-muted-foreground hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Status badge */}
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${getStatusClasses(
                         activity.status,
@@ -412,11 +524,11 @@ export default function Dashboard() {
                     </span>
                   </div>
 
-                  {/* Inline Accordion Panel — Jobs List */}
+                  {/* ── Accordion — Jobs List ── */}
                   {isSelected && (
                     <div className="animate-accordion-down bg-muted/20 border-l-2 border-l-primary">
-                      {/* Controls bar */}
-                      <div className="flex items-center justify-between px-5 py-2 border-b border-border/60">
+                      {/* Summary bar */}
+                      <div className="flex items-center px-5 py-2 border-b border-border/60">
                         <div className="text-xs text-muted-foreground">
                           {selectedResultsMeta ? (
                             <>
@@ -452,38 +564,6 @@ export default function Dashboard() {
                             "Loading..."
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePauseSelectedRun();
-                            }}
-                            disabled={
-                              !selectedResultsMeta ||
-                              !["running", "pending"].includes(
-                                selectedResultsMeta.status,
-                              )
-                            }
-                            className="rounded-md border border-orange-300 px-3 py-1 text-xs font-medium text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-                          >
-                            Pause
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleResumeSelectedRun();
-                            }}
-                            disabled={
-                              !selectedResultsMeta ||
-                              !["paused", "failed", "completed"].includes(
-                                selectedResultsMeta.status,
-                              )
-                            }
-                            className="rounded-md border border-blue-300 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-                          >
-                            Resume
-                          </button>
-                        </div>
                       </div>
 
                       {/* Job cards */}
@@ -503,7 +583,6 @@ export default function Dashboard() {
                               >
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
-                                    {/* Company initial avatar */}
                                     <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                                       {(job.company || "?")[0].toUpperCase()}
                                     </span>
@@ -535,12 +614,13 @@ export default function Dashboard() {
                               </div>
                             ))}
 
-                            {/* Pagination + summary */}
                             {selectedResultsMeta?.totalPages > 1 ? (
                               <div className="flex items-center justify-between pt-2">
                                 <p className="text-xs text-muted-foreground">
-                                  Page {selectedResultsMeta.page || selectedResultsPage} of{" "}
-                                  {selectedResultsMeta.totalPages}
+                                  Page{" "}
+                                  {selectedResultsMeta.page ||
+                                    selectedResultsPage}{" "}
+                                  of {selectedResultsMeta.totalPages}
                                 </p>
                                 <Pagination
                                   currentPage={
@@ -548,9 +628,7 @@ export default function Dashboard() {
                                     selectedResultsPage
                                   }
                                   totalPages={selectedResultsMeta.totalPages}
-                                  onPageChange={(page) => {
-                                    handleSelectedResultsPageChange(page);
-                                  }}
+                                  onPageChange={handleSelectedResultsPageChange}
                                 />
                               </div>
                             ) : null}
