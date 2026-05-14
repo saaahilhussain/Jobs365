@@ -7,10 +7,12 @@ const userSchema = new mongoose.Schema(
     avatarUrl: { type: String, default: "" },
     provider: {
       type: String,
-      enum: ["google", "github"],
+      enum: ["google", "github", "email"],
       required: true,
     },
     providerId: { type: String, required: true },
+    passwordHash: { type: String, default: "" },
+    emailVerified: { type: Boolean, default: false },
     // Per-user Apify token; stored plaintext for now. Move to KMS / encrypt-at-rest later.
     apifyToken: { type: String, default: "" },
     defaultActorKey: { type: String, default: "linkedin" },
