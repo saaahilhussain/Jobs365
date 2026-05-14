@@ -11,6 +11,16 @@ const ITEMS_PER_PAGE = 8;
 const jobStatuses = ["all", "new", "reviewed", "saved", "flagged"];
 const jobSources = ["all", "LinkedIn", "Naukri", "Indeed", "Glassdoor", "Internshala"];
 
+const SortButton = ({ field, onSort, children }) => (
+  <button
+    onClick={() => onSort(field)}
+    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+  >
+    {children}
+    <ArrowUpDown className="h-3 w-3" />
+  </button>
+);
+
 export default function Jobs() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +76,7 @@ export default function Jobs() {
     }
 
     result.sort((a, b) => {
-      let cmp = 0;
+      let cmp;
       if (sortField === "dateScraped") {
         cmp = new Date(a.dateScraped) - new Date(b.dateScraped);
       } else if (sortField === "relevanceScore" || sortField === "scamScore") {
@@ -84,16 +94,6 @@ export default function Jobs() {
   const paginated = filtered.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
-  );
-
-  const SortButton = ({ field, children }) => (
-    <button
-      onClick={() => toggleSort(field)}
-      className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-    >
-      {children}
-      <ArrowUpDown className="h-3 w-3" />
-    </button>
   );
 
   if (loading) return <LoadingSpinner text="Loading jobs..." />;
@@ -146,21 +146,21 @@ export default function Jobs() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-4 py-3 text-left">
-                    <SortButton field="title">Job Title</SortButton>
+                    <SortButton field="title" onSort={toggleSort}>Job Title</SortButton>
                   </th>
                   <th className="px-4 py-3 text-left">
-                    <SortButton field="company">Company</SortButton>
+                    <SortButton field="company" onSort={toggleSort}>Company</SortButton>
                   </th>
                   <th className="px-4 py-3 text-left hidden md:table-cell">Source</th>
                   <th className="px-4 py-3 text-right hidden lg:table-cell">
-                    <SortButton field="relevanceScore">Relevance</SortButton>
+                    <SortButton field="relevanceScore" onSort={toggleSort}>Relevance</SortButton>
                   </th>
                   <th className="px-4 py-3 text-right hidden lg:table-cell">
-                    <SortButton field="scamScore">Scam</SortButton>
+                    <SortButton field="scamScore" onSort={toggleSort}>Scam</SortButton>
                   </th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left hidden sm:table-cell">
-                    <SortButton field="dateScraped">Date</SortButton>
+                    <SortButton field="dateScraped" onSort={toggleSort}>Date</SortButton>
                   </th>
                 </tr>
               </thead>

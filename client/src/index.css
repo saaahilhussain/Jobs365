@@ -140,7 +140,7 @@
   }
 }
 .marquee-track {
-  animation: marquee 30s linear infinite;
+  animation: marquee 18s linear infinite;
 }
 
 /* Decorative grid backdrop — adapts to theme. */

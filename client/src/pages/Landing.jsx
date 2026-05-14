@@ -38,11 +38,11 @@ const features = [
 ];
 
 const trustedLogos = [
-  { name: "LinkedIn", domain: "linkedin.com" },
-  { name: "Indeed", domain: "indeed.com" },
-  { name: "Glassdoor", domain: "glassdoor.com" },
-  { name: "Naukri", domain: "naukri.com" },
-  { name: "Internshala", domain: "internshala.com" },
+  { name: "LinkedIn", file: "/logos/linkedin.svg" },
+  { name: "Indeed", file: "/logos/indeed.svg" },
+  { name: "Glassdoor", file: "/logos/glassdoor.svg" },
+  { name: "Naukri", file: "/logos/naukri.png" },
+  { name: "Internshala", file: "/logos/internshala.webp" },
 ];
 
 export default function Landing() {
@@ -61,10 +61,10 @@ export default function Landing() {
 
 function Nav() {
   return (
-    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
         <Link to="/" className="flex items-center gap-2">
-          <Logo />
+          {/* <Logo /> */}
           <span className="text-sm font-semibold tracking-tight">Jobs365</span>
         </Link>
         <nav className="flex items-center gap-1">
@@ -98,7 +98,7 @@ function Hero() {
           style={{ animationDelay: "0ms" }}
         >
           The job search,
-          <span className="block bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent">
+          <span className="block bg-linear-to-b from-foreground to-foreground/60 bg-clip-text text-transparent">
             without the busywork.
           </span>
         </h1>
@@ -134,10 +134,7 @@ function Hero() {
           Free to use. Bring your own Apify key.
         </p>
 
-        <div
-          className="rise-in mt-16"
-          style={{ animationDelay: "240ms" }}
-        >
+        <div className="rise-in mt-16" style={{ animationDelay: "240ms" }}>
           <HeroPreview />
         </div>
       </div>
@@ -148,7 +145,7 @@ function Hero() {
 function HeroPreview() {
   return (
     <div className="relative mx-auto max-w-4xl">
-      <div className="absolute -inset-x-8 -inset-y-6 -z-10 rounded-[2rem] bg-gradient-to-b from-muted/40 to-transparent blur-2xl" />
+      <div className="absolute -inset-x-8 -inset-y-6 -z-10 rounded-4xl bg-linear-to-b from-muted/40 to-transparent blur-2xl" />
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_24px_80px_-32px_rgba(0,0,0,0.18)]">
         <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
           <span className="h-2.5 w-2.5 rounded-full bg-border" />
@@ -166,9 +163,24 @@ function HeroPreview() {
         </div>
         <div className="divide-y divide-border">
           {[
-            { role: "Senior Frontend Engineer", co: "Linear", score: 94, when: "2m ago" },
-            { role: "Full-stack Engineer (Node)", co: "Vercel", score: 88, when: "11m ago" },
-            { role: "Product Engineer", co: "Raycast", score: 86, when: "31m ago" },
+            {
+              role: "Senior Frontend Engineer",
+              co: "Linear",
+              score: 94,
+              when: "2m ago",
+            },
+            {
+              role: "Full-stack Engineer (Node)",
+              co: "Vercel",
+              score: 88,
+              when: "11m ago",
+            },
+            {
+              role: "Product Engineer",
+              co: "Raycast",
+              score: 86,
+              when: "31m ago",
+            },
             { role: "React Engineer", co: "Resend", score: 81, when: "1h ago" },
           ].map((j) => (
             <div
@@ -219,16 +231,15 @@ function TrustedRow() {
         <p className="text-center text-xs uppercase tracking-wider text-muted-foreground">
           Scrapes from
         </p>
-        <div className="mt-4 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]">
-          <div className="marquee-track flex w-max items-center gap-12">
+        <div className="mt-4 overflow-hidden mask-[linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]">
+          <div className="marquee-track flex w-max items-center gap-14">
             {loop.map((logo, i) => (
               <img
-                key={`${logo.domain}-${i}`}
-                src={`https://www.google.com/s2/favicons?domain=${logo.domain}&sz=128`}
+                key={`${logo.name}-${i}`}
+                src={logo.file}
                 alt={logo.name}
-                title={logo.name}
                 loading="lazy"
-                className="h-8 w-8 shrink-0 rounded"
+                className="h-7 w-auto shrink-0"
               />
             ))}
           </div>
@@ -329,7 +340,7 @@ function CTA() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-24">
       <div className="relative overflow-hidden rounded-2xl border border-border bg-foreground p-10 text-background sm:p-14">
-        <div className="absolute inset-0 -z-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_50%)]" />
+        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_50%)]" />
         <div className="relative mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Stop refreshing job boards.
@@ -386,7 +397,7 @@ function BackgroundGrid() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(60%_50%_at_50%_30%,black,transparent)]"
+      className="pointer-events-none absolute inset-0 -z-10 mask-[radial-gradient(60%_50%_at_50%_30%,black,transparent)]"
     >
       <div className="bg-grid absolute inset-0 opacity-[0.6]" />
     </div>

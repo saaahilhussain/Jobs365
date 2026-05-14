@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Briefcase,
   Send,
@@ -10,7 +11,9 @@ import {
   ExternalLink,
   Pause,
   Play,
+  CheckCheck,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -23,11 +26,13 @@ import {
   getScrapeRunResults,
   pauseScrapeRun,
   rerunScrapeRun,
+  completeScrapeRun,
   deleteScrapeRun,
   getActors,
 } from "@/api/scraperApi";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [scrapingActivity, setScrapingActivity] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +41,7 @@ export default function Dashboard() {
   const [query, setQuery] = useState("software engineer");
   const [location, setLocation] = useState("remote");
   const [limit, setLimit] = useState("20");
-  const [runBudgetSecs, setRunBudgetSecs] = useState("30");
+  const [runBudgetSecs, setRunBudgetSecs] = useState("60");
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState(null);
   const [scrapeError, setScrapeError] = useState("");
@@ -58,16 +63,21 @@ export default function Dashboard() {
   const [selectedResultsPage, setSelectedResultsPage] = useState(1);
   const [selectedResultsLimit] = useState(10);
 
-  // Stable refs so refreshData can read latest values without stale closures
+  // Stable refs so refreshData can read latest values without stale closures.
+  // Synced after every render via the effect below — the interval reads
+  // .current at tick time (every 1s), so a post-commit update is fine.
   const selectedActivityIdRef = useRef(null);
   const selectedResultsPageRef = useRef(1);
   const selectedResultsLimitRef = useRef(10);
-  const isSyncingRef = useRef(false);  // ref so interval doesn't restart on each sync
-  const cronTimerActiveRef = useRef(false); // mirrors cronTimerActive; checked synchronously inside setInterval
-  cronTimerActiveRef.current = cronTimerActive;
-  selectedActivityIdRef.current = selectedActivityId;
-  selectedResultsPageRef.current = selectedResultsPage;
-  selectedResultsLimitRef.current = selectedResultsLimit;
+  const isSyncingRef = useRef(false); // ref so interval doesn't restart on each sync
+  const cronTimerActiveRef = useRef(false);
+
+  useEffect(() => {
+    cronTimerActiveRef.current = cronTimerActive;
+    selectedActivityIdRef.current = selectedActivityId;
+    selectedResultsPageRef.current = selectedResultsPage;
+    selectedResultsLimitRef.current = selectedResultsLimit;
+  });
 
   // Initial data load
   useEffect(() => {
@@ -154,7 +164,6 @@ export default function Dashboard() {
     }, 1000);
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cronTimerActive]);
 
   // ---------------------------------------------------------------------------
@@ -270,6 +279,17 @@ export default function Dashboard() {
       setSelectedResultsMeta(runResults);
     } catch (err) {
       setScrapeError(err?.response?.data?.message || "Failed to re-run");
+    }
+  };
+
+  const handleCompleteRun = async (e, activityId) => {
+    e.stopPropagation();
+    try {
+      await completeScrapeRun(activityId);
+      setCronTimerActive(false);
+      navigate("/app/jobs");
+    } catch (err) {
+      setScrapeError(err?.response?.data?.message || "Failed to mark complete");
     }
   };
 
@@ -411,8 +431,9 @@ export default function Dashboard() {
               onChange={(e) => setRunBudgetSecs(e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
-              <option value="30">Run budget: 30s</option>
               <option value="60">Run budget: 60s</option>
+              <option value="120">Run budget: 120s</option>
+              <option value="180">Run budget: 180s</option>
             </select>
           </div>
           <button
@@ -439,13 +460,24 @@ export default function Dashboard() {
       <div className="rounded-lg border border-border">
         <div className="border-b border-border px-5 py-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Scraping Activity</h2>
-          <p className="text-xs text-muted-foreground">
-            {isSyncing
-              ? "Adding jobs..."
-              : cronTimerActive
-                ? `Adding jobs in ${cronCountdown}s`
-                : "Auto-sync idle"}
-          </p>
+          {isSyncing ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Adding jobs...
+            </span>
+          ) : cronTimerActive ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+              </span>
+              Adding jobs in {cronCountdown}s
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Auto-sync idle
+            </span>
+          )}
         </div>
 
         {scrapingActivity.length === 0 ? (
@@ -493,7 +525,19 @@ export default function Dashboard() {
                         ) : null}
                       </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                        <span>{activity.jobs} jobs scraped</span>
+                        {isActive && activity.jobs === 0 && cronTimerActive ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
+                            </span>
+                            {isSyncing
+                              ? "Adding jobs..."
+                              : `Adding jobs in ${cronCountdown}s`}
+                          </span>
+                        ) : (
+                          <span>{activity.jobs} jobs scraped</span>
+                        )}
                         <span className="text-border">·</span>
                         <span>{activity.time}</span>
                         {activity.location ? (
@@ -531,6 +575,16 @@ export default function Dashboard() {
                         >
                           <Play className="h-3 w-3" />
                           Re-run
+                        </button>
+                      )}
+                      {activity.status !== "completed" && (
+                        <button
+                          title="Mark as complete and send to Jobs"
+                          onClick={(e) => handleCompleteRun(e, activity.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-green-300 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 transition-colors"
+                        >
+                          <CheckCheck className="h-3 w-3" />
+                          Add to Jobs
                         </button>
                       )}
                       <button
@@ -599,9 +653,30 @@ export default function Dashboard() {
                         {loadingSelectedResults ? (
                           <LoadingSpinner text="Loading results..." />
                         ) : selectedResults.length === 0 ? (
-                          <p className="text-sm text-muted-foreground py-4 text-center">
-                            No results yet for this activity.
-                          </p>
+                          cronTimerActive &&
+                          ["pending", "running"].includes(
+                            selectedResultsMeta?.status,
+                          ) ? (
+                            <div className="flex flex-col items-center justify-center gap-2 py-6">
+                              <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+                                  <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                                </span>
+                                {isSyncing
+                                  ? "Adding jobs..."
+                                  : `Adding jobs in ${cronCountdown}s`}
+                              </span>
+                              <p className="text-xs text-muted-foreground">
+                                Waiting for Apify to produce the first
+                                results...
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground py-4 text-center">
+                              No results yet for this activity.
+                            </p>
+                          )
                         ) : (
                           <div className="space-y-2">
                             {selectedResults.map((job) => (

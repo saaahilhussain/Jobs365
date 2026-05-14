@@ -27,24 +27,18 @@ const apply = (resolved) => {
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(readStored);
-  const [resolvedTheme, setResolvedTheme] = useState(() =>
-    readStored() === "system" ? systemPreference() : readStored(),
-  );
+  const [systemTheme, setSystemTheme] = useState(systemPreference);
+
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   useEffect(() => {
-    const next = theme === "system" ? systemPreference() : theme;
-    setResolvedTheme(next);
-    apply(next);
-  }, [theme]);
+    apply(resolvedTheme);
+  }, [resolvedTheme]);
 
   useEffect(() => {
     if (theme !== "system") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const next = mql.matches ? "dark" : "light";
-      setResolvedTheme(next);
-      apply(next);
-    };
+    const onChange = () => setSystemTheme(mql.matches ? "dark" : "light");
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, [theme]);
@@ -69,4 +63,5 @@ export function ThemeProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => useContext(ThemeContext);

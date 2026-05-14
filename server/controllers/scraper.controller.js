@@ -257,7 +257,7 @@ export const rerunRun = async (req, res) => {
     const parentRun = await ScrapeRun.findOne({
       _id: jobId,
       userId: req.user._id,
-    }).lean();
+    });
 
     if (!parentRun) {
       return res.status(404).json({ success: false, message: "Run not found" });
@@ -284,9 +284,12 @@ export const rerunRun = async (req, res) => {
       limit,
     });
 
-    const newRun = await ScrapeRun.create({
-      userId: req.user._id,
-      status: status === "RUNNING" ? "running" : "pending",
+    // Update the parent run in place — keep the same _id so jobs from prior
+    // runs stay associated with this activity row. syncedItems resets to 0
+    // because the new Apify run has a fresh dataset (offset cursor starts
+    // over); jobsFetched stays so the lifetime count keeps incrementing.
+    const nextStatus = status === "RUNNING" ? "running" : "pending";
+    await parentRun.updateOne({
       apifyRunId: runId,
       datasetId,
       actorKey,
@@ -294,20 +297,57 @@ export const rerunRun = async (req, res) => {
       location,
       limit,
       runBudgetSecs,
-      resumedFromRunId: parentRun._id,
+      status: nextStatus,
       stopReason: null,
       syncedItems: 0,
-      jobsFetched: 0,
+      startedAt: new Date(),
+      finishedAt: null,
     });
 
     return res.status(200).json({
       success: true,
       data: {
-        jobId: newRun._id,
+        jobId: parentRun._id,
         apifyRunId: runId,
-        status: newRun.status,
-        message: `Started new run from previous: ${runId}`,
+        status: nextStatus,
+        message: `Resumed run with new Apify execution: ${runId}`,
       },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const completeRun = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const run = await ScrapeRun.findOne({
+      _id: jobId,
+      userId: req.user._id,
+    });
+
+    if (!run) {
+      return res.status(404).json({ success: false, message: "Run not found" });
+    }
+
+    if (run.apifyRunId && ["pending", "running"].includes(run.status)) {
+      await apifyService
+        .abortRun({ apifyToken: userToken(req), runId: run.apifyRunId })
+        .catch(() => {});
+    }
+
+    await run.updateOne({
+      status: "completed",
+      stopReason: "manual",
+      finishedAt: new Date(),
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: { id: run._id, status: "completed" },
     });
   } catch (error) {
     return res.status(500).json({

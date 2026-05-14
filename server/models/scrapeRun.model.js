@@ -14,7 +14,7 @@ const scrapeRunSchema = new mongoose.Schema(
     query: { type: String, default: "software engineer" },
     location: { type: String, default: "remote" },
     limit: { type: Number, default: 20 },
-    runBudgetSecs: { type: Number, default: 60 },
+    runBudgetSecs: { type: Number, default: 120 },
     resumedFromRunId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ScrapeRun",

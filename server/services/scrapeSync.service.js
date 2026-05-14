@@ -15,37 +15,69 @@ const resolveUserToken = async (userId) => {
   return token;
 };
 
-const enforceRunBudgetIfNeeded = async (run, apifyToken) => {
+const isRunBudgetExceeded = (run) => {
   if (!run?.apifyRunId || !run?.runBudgetSecs) return false;
   if (!["pending", "running"].includes(run.status)) return false;
-
   const startedAtMs = run.startedAt
     ? new Date(run.startedAt).getTime()
     : Date.now();
   const elapsedSecs = (Date.now() - startedAtMs) / 1000;
-  if (elapsedSecs < run.runBudgetSecs) return false;
+  return elapsedSecs >= run.runBudgetSecs;
+};
 
-  await apifyService.abortRun({ apifyToken, runId: run.apifyRunId });
-  await ScrapeRun.updateOne(
-    { _id: run._id },
-    {
-      status: "completed",
-      stopReason: "budget",
-      finishedAt: new Date(),
-    },
-  );
-  return true;
+const insertJobsAndCount = async (jobs, run) => {
+  if (jobs.length === 0) return { insertedCount: 0, duplicateCount: 0 };
+
+  const jobsToInsert = jobs.map((job) => ({
+    ...job,
+    userId: run.userId,
+    scrapeRunId: run._id,
+    apifyRunId: run.apifyRunId,
+  }));
+
+  try {
+    const result = await Job.insertMany(jobsToInsert, {
+      ordered: false,
+      rawResult: true,
+    });
+    return {
+      insertedCount: result?.insertedCount ?? jobs.length,
+      duplicateCount: 0,
+    };
+  } catch (err) {
+    // BulkWriteError shape: err.code === 11000 (duplicate), err.writeErrors[]
+    const writeErrors = Array.isArray(err?.writeErrors) ? err.writeErrors : [];
+    const duplicateCount = writeErrors.filter(
+      (e) => e?.err?.code === 11000 || e?.code === 11000,
+    ).length;
+    const otherErrors = writeErrors.filter(
+      (e) => e?.err?.code !== 11000 && e?.code !== 11000,
+    );
+    const insertedCount = err?.result?.nInserted ?? err?.insertedCount ?? 0;
+
+    if (otherErrors.length > 0) {
+      console.warn(
+        `Run ${run._id}: insertMany had ${otherErrors.length} non-duplicate errors`,
+        otherErrors[0]?.errmsg || otherErrors[0]?.err?.errmsg || otherErrors[0],
+      );
+    }
+    return { insertedCount, duplicateCount };
+  }
 };
 
 const syncRun = async (run, apifyToken) => {
-  const budgetStopped = await enforceRunBudgetIfNeeded(run, apifyToken);
-  if (budgetStopped) return { jobsImported: 0, budgetStopped: true };
-
+  // checkRunStatus first — its endpoint is immediately available after a run
+  // starts, so a 404 here reliably means "run gone" and syncAllPending's
+  // 404 → deleteOne branch is correct. Putting fetchDatasetItems before this
+  // was wrong: that endpoint can transiently 404 on a brand-new dataset,
+  // which caused valid runs to be deleted.
   const { status, finishedAt } = await apifyService.checkRunStatus({
     apifyToken,
     runId: run.apifyRunId,
   });
 
+  // Drain dataset BEFORE any budget/status finalization so late-arriving
+  // items aren't stranded when the run is aborted on budget.
   const currentSyncedItems = Number(run.syncedItems || 0);
   const jobs = await apifyService.fetchDatasetItems({
     apifyToken,
@@ -54,24 +86,42 @@ const syncRun = async (run, apifyToken) => {
     actorKey: run.actorKey,
   });
 
-  if (jobs.length > 0) {
-    const jobsToInsert = jobs.map((job) => ({
-      ...job,
-      userId: run.userId,
-      scrapeRunId: run._id,
-      apifyRunId: run.apifyRunId,
-    }));
+  const { insertedCount, duplicateCount } = await insertJobsAndCount(jobs, run);
 
-    await Job.insertMany(jobsToInsert, { ordered: false }).catch(() => {
-      // Ignore duplicate key errors (Quick win D: unique index on { userId, url })
-    });
+  if (jobs.length > 0) {
+    console.log(
+      `Run ${run.apifyRunId}: fetched=${jobs.length} inserted=${insertedCount} duplicates=${duplicateCount}`,
+    );
   }
 
+  // Advance the offset by what Apify returned (including duplicates) so we
+  // don't refetch the same items on the next tick. Real DB inserts are
+  // reflected in jobsFetched.
   const nextSyncedItems = currentSyncedItems + jobs.length;
+  const nextJobsFetched = Number(run.jobsFetched || 0) + insertedCount;
   const baseUpdate = {
-    jobsFetched: nextSyncedItems,
+    jobsFetched: nextJobsFetched,
     syncedItems: nextSyncedItems,
   };
+
+  if (isRunBudgetExceeded(run)) {
+    // Abort on Apify side, then mark completed with budget reason.
+    try {
+      await apifyService.abortRun({ apifyToken, runId: run.apifyRunId });
+    } catch (err) {
+      console.warn(
+        `Run ${run.apifyRunId}: abortRun on budget exceeded failed:`,
+        err.message,
+      );
+    }
+    await run.updateOne({
+      ...baseUpdate,
+      status: "completed",
+      stopReason: "budget",
+      finishedAt: new Date(),
+    });
+    return { jobsImported: insertedCount, budgetStopped: true };
+  }
 
   if (status === "SUCCEEDED") {
     await run.updateOne({
@@ -96,7 +146,7 @@ const syncRun = async (run, apifyToken) => {
     await run.updateOne({ ...baseUpdate, status: "running" });
   }
 
-  return { jobsImported: jobs.length };
+  return { jobsImported: insertedCount };
 };
 
 export const scrapeSyncService = {

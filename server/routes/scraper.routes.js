@@ -6,6 +6,7 @@ import {
   getRunResults,
   pauseRun,
   rerunRun,
+  completeRun,
   deleteRun,
   getActors,
 } from "../controllers/scraper.controller.js";
@@ -18,6 +19,7 @@ router.get("/actors", asyncHandler(getActors));
 router.get("/sync", asyncHandler(syncPendingRuns));
 router.post("/:jobId/pause", asyncHandler(pauseRun));
 router.post("/:jobId/rerun", asyncHandler(rerunRun));
+router.post("/:jobId/complete", asyncHandler(completeRun));
 router.get("/:jobId/results", asyncHandler(getRunResults));
 router.get("/:jobId", asyncHandler(getJobStatus));
 router.delete("/:jobId", asyncHandler(deleteRun));
