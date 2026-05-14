@@ -60,6 +60,8 @@ export default function Dashboard() {
   const selectedResultsPageRef = useRef(1);
   const selectedResultsLimitRef = useRef(10);
   const isSyncingRef = useRef(false);  // ref so interval doesn't restart on each sync
+  const cronTimerActiveRef = useRef(false); // mirrors cronTimerActive; checked synchronously inside setInterval
+  cronTimerActiveRef.current = cronTimerActive;
   selectedActivityIdRef.current = selectedActivityId;
   selectedResultsPageRef.current = selectedResultsPage;
   selectedResultsLimitRef.current = selectedResultsLimit;
@@ -117,7 +119,8 @@ export default function Dashboard() {
 
           // Stop the timer once the run is in a terminal state
           if (["completed", "failed", "paused"].includes(runResults.status)) {
-            setCronTimerActive(false);
+            cronTimerActiveRef.current = false; // stop interval ticks immediately
+            setCronTimerActive(false);           // trigger effect cleanup
           }
         }
       } catch (err) {
@@ -129,6 +132,9 @@ export default function Dashboard() {
     };
 
     const interval = setInterval(() => {
+      // Check ref synchronously — stops immediately when run completes,
+      // without waiting for React's async state update + effect cleanup.
+      if (!cronTimerActiveRef.current) return;
       if (isSyncingRef.current) return; // freeze while fetch is in-flight
 
       countdownRef.current -= 1;
@@ -197,15 +203,14 @@ export default function Dashboard() {
       setCronTimerActive(Boolean(data.apifyRunId));
       setIsScraping(false);
 
-      // Show the new queued row quickly
-      setTimeout(async () => {
-        try {
-          const activityRes = await getScrapingActivity();
-          setScrapingActivity(activityRes || []);
-        } catch (err) {
-          console.error("Failed to refresh scraping activity:", err);
-        }
-      }, 5000);
+      // Immediately show the new queued row — the DB record already
+      // exists at this point (created before the Apify call on the server).
+      try {
+        const activityRes = await getScrapingActivity();
+        setScrapingActivity(activityRes || []);
+      } catch (err) {
+        console.error("Failed to refresh scraping activity:", err);
+      }
     } catch (err) {
       setScrapeError(
         err?.response?.data?.message || "Failed to start scraping",
