@@ -4,11 +4,11 @@ import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 
 const pageTitles = {
-  "/": "Dashboard",
-  "/jobs": "Jobs",
-  "/applications": "Applications",
-  "/analytics": "Analytics",
-  "/settings": "Settings",
+  "/app": "Dashboard",
+  "/app/jobs": "Jobs",
+  "/app/applications": "Applications",
+  "/app/analytics": "Analytics",
+  "/app/settings": "Settings",
 };
 
 export default function DashboardLayout() {

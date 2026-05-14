@@ -2,11 +2,9 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
-export default function ProtectedRoute({ children }) {
+export default function RedirectIfAuthed({ children }) {
   const { user, loading } = useAuth();
-
   if (loading) return <LoadingSpinner text="Checking session..." />;
-  if (!user) return <Navigate to="/signin" replace />;
-
+  if (user) return <Navigate to="/app" replace />;
   return children;
 }

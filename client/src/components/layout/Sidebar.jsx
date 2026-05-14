@@ -8,11 +8,11 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/applications", label: "Applications", icon: Send },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/app/jobs", label: "Jobs", icon: Briefcase },
+  { to: "/app/applications", label: "Applications", icon: Send },
+  { to: "/app/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -44,7 +44,7 @@ export default function Sidebar({ isOpen, onClose }) {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/"}
+              end={item.to === "/app"}
               onClick={onClose}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
