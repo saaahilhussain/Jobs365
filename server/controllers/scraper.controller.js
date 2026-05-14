@@ -199,7 +199,7 @@ export const pauseRun = async (req, res) => {
   }
 };
 
-export const resumeRun = async (req, res) => {
+export const rerunRun = async (req, res) => {
   try {
     const { jobId } = req.params;
     const parentRun = await ScrapeRun.findById(jobId).lean();
@@ -208,10 +208,10 @@ export const resumeRun = async (req, res) => {
       return res.status(404).json({ success: false, message: "Run not found" });
     }
 
-    if (!queryIn(parentRun.status, ["paused", "failed", "completed"])) {
+    if (!["paused", "failed", "completed"].includes(parentRun.status)) {
       return res.status(400).json({
         success: false,
-        message: `Run cannot be resumed from status '${parentRun.status}'`,
+        message: `Run cannot be re-run from status '${parentRun.status}'`,
       });
     }
 
@@ -226,7 +226,7 @@ export const resumeRun = async (req, res) => {
       limit,
     });
 
-    const resumedRun = await ScrapeRun.create({
+    const newRun = await ScrapeRun.create({
       status: status === "RUNNING" ? "running" : "pending",
       apifyRunId: runId,
       datasetId,
@@ -243,10 +243,10 @@ export const resumeRun = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        jobId: resumedRun._id,
+        jobId: newRun._id,
         apifyRunId: runId,
-        status: resumedRun.status,
-        message: `Run resumed with new Apify run ID: ${runId}`,
+        status: newRun.status,
+        message: `Started new run from previous: ${runId}`,
       },
     });
   } catch (error) {
@@ -286,7 +286,3 @@ export const deleteRun = async (req, res) => {
     });
   }
 };
-
-function queryIn(value, allowed) {
-  return allowed.includes(value);
-}

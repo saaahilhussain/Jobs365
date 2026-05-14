@@ -22,7 +22,7 @@ import {
   syncPendingRuns,
   getScrapeRunResults,
   pauseScrapeRun,
-  resumeScrapeRun,
+  rerunScrapeRun,
   deleteScrapeRun,
 } from "@/api/scraperApi";
 
@@ -240,20 +240,20 @@ export default function Dashboard() {
     }
   };
 
-  const handleResumeRun = async (e, activityId) => {
+  const handleRerunRun = async (e, activityId) => {
     e.stopPropagation();
     try {
-      const resumed = await resumeScrapeRun(activityId);
+      const newRun = await rerunScrapeRun(activityId);
 
-      const newId = resumed?.jobId || activityId;
-      if (resumed?.jobId) {
-        setSelectedActivityId(resumed.jobId);
+      const newId = newRun?.jobId || activityId;
+      if (newRun?.jobId) {
+        setSelectedActivityId(newRun.jobId);
         setSelectedResultsPage(1);
       }
 
       countdownRef.current = 10;
       setCronCountdown(10);
-      setCronTimerActive(Boolean(resumed?.apifyRunId));
+      setCronTimerActive(Boolean(newRun?.apifyRunId));
 
       const [activityRes, runResults] = await Promise.all([
         getScrapingActivity(),
@@ -263,7 +263,7 @@ export default function Dashboard() {
       setSelectedResults(runResults.results || []);
       setSelectedResultsMeta(runResults);
     } catch (err) {
-      setScrapeError(err?.response?.data?.message || "Failed to resume run");
+      setScrapeError(err?.response?.data?.message || "Failed to re-run");
     }
   };
 
@@ -504,12 +504,12 @@ export default function Dashboard() {
                       )}
                       {isPaused && (
                         <button
-                          title="Resume run"
-                          onClick={(e) => handleResumeRun(e, activity.id)}
+                          title="Re-run from this run's settings"
+                          onClick={(e) => handleRerunRun(e, activity.id)}
                           className="inline-flex items-center gap-1 rounded-md border border-blue-300 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 transition-colors"
                         >
                           <Play className="h-3 w-3" />
-                          Resume
+                          Re-run
                         </button>
                       )}
                       <button

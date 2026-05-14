@@ -33,8 +33,8 @@ export const pauseScrapeRun = async (jobId) => {
   return res.data?.data ?? null;
 };
 
-export const resumeScrapeRun = async (jobId) => {
-  const res = await api.post(`/scraper/${jobId}/resume`);
+export const rerunScrapeRun = async (jobId) => {
+  const res = await api.post(`/scraper/${jobId}/rerun`);
   return res.data?.data ?? null;
 };
 
