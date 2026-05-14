@@ -29,3 +29,8 @@ export const getScrapingActivity = async () => {
   const res = await api.get("/analytics/scraping-activity");
   return res.data.data || [];
 };
+
+export const getApifyLimits = async () => {
+  const res = await api.get("/analytics/apify-limits");
+  return res.data?.data ?? { apifyCreditsRemaining: null };
+};

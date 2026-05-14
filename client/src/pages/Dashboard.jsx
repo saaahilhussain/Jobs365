@@ -19,7 +19,7 @@ import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
-import { getDashboardStats, getScrapingActivity } from "@/api/analyticsApi";
+import { getDashboardStats, getScrapingActivity, getApifyLimits } from "@/api/analyticsApi";
 import {
   startScrapeRun,
   syncPendingRuns,
@@ -42,6 +42,8 @@ export default function Dashboard() {
   const [location, setLocation] = useState("remote");
   const [limit, setLimit] = useState("20");
   const [runBudgetSecs, setRunBudgetSecs] = useState("60");
+  const [apifyCredits, setApifyCredits] = useState(null);
+  const [loadingCredits, setLoadingCredits] = useState(true);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState(null);
   const [scrapeError, setScrapeError] = useState("");
@@ -82,6 +84,12 @@ export default function Dashboard() {
   // Initial data load
   useEffect(() => {
     const fetchData = async () => {
+      // Credits fire immediately in background — don't block dashboard render
+      getApifyLimits()
+        .then((data) => setApifyCredits(data.apifyCreditsRemaining))
+        .catch(() => setApifyCredits(null))
+        .finally(() => setLoadingCredits(false));
+
       try {
         await syncPendingRuns();
         const [statsRes, activityRes, actorsRes] = await Promise.all([
@@ -376,7 +384,11 @@ export default function Dashboard() {
           />
           <StatCard
             title="Apify Credits"
-            value={(stats.apifyCreditsRemaining ?? 0).toLocaleString()}
+            value={
+              loadingCredits
+                ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                : (apifyCredits ?? 0).toLocaleString()
+            }
             icon={Zap}
             subtitle="Remaining"
           />

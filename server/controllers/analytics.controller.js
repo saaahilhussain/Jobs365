@@ -5,30 +5,27 @@ import { apifyService } from "../services/apify.service.js";
 
 export const getDashboardStats = async (req, res) => {
   const userId = req.user._id;
-  const totalJobs = await Job.countDocuments({ userId });
-  const applicationsSent = await Application.countDocuments({ userId });
-  // "Pending" = applied but not yet resolved (rejected/ghosted/offer)
-  const pendingApplications = await Application.countDocuments({
-    userId,
-    status: { $in: ["applied", "assessment", "interview"] },
+  const [totalJobs, applicationsSent, pendingApplications] = await Promise.all([
+    Job.countDocuments({ userId }),
+    Application.countDocuments({ userId }),
+    Application.countDocuments({
+      userId,
+      status: { $in: ["applied", "assessment", "interview"] },
+    }),
+  ]);
+  res.status(200).json({
+    success: true,
+    data: { totalJobs, applicationsSent, pendingApplications, scamJobsFiltered: 0 },
   });
-  // Wired up once scam detection lands; field doesn't exist on Job yet
-  const scamJobsFiltered = 0;
+};
 
+export const getApifyLimits = async (req, res) => {
   const limits = await apifyService.getAccountLimits(
     req.user.apifyToken || process.env.APIFY_TOKEN,
   );
-
   res.status(200).json({
     success: true,
-    data: {
-      totalJobs,
-      applicationsSent,
-      pendingApplications,
-      scamJobsFiltered,
-      apifyUsage: limits,
-      apifyCreditsRemaining: limits?.remainingMonthlyUsageUsd ?? null,
-    },
+    data: { apifyCreditsRemaining: limits?.remainingMonthlyUsageUsd ?? null },
   });
 };
 

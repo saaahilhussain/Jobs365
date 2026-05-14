@@ -2,7 +2,7 @@ import api from "./client";
 
 export const getJobs = async (params) => {
   const res = await api.get("/jobs", { params });
-  return res.data;
+  return res.data?.data ?? [];
 };
 
 export const getJobById = async (id) => {
