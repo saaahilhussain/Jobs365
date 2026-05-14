@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const scrapeRunSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
     apifyRunId: { type: String },
     datasetId: { type: String },
     actorKey: { type: String, default: "linkedin" },

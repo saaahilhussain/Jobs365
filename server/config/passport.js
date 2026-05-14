@@ -1,7 +1,10 @@
 import passport from "passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Strategy as GitHubStrategy } from "passport-github2";
+import passportGoogle from "passport-google-oauth20";
+import passportGitHub from "passport-github2";
 import { User } from "../models/user.model.js";
+
+const GoogleStrategy = passportGoogle.Strategy;
+const GitHubStrategy = passportGitHub.Strategy;
 
 const upsertUser = async ({ provider, providerId, email, name, avatarUrl }) => {
   if (!email) {

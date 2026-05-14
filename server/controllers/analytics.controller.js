@@ -4,16 +4,20 @@ import { Application } from "../models/application.model.js";
 import { apifyService } from "../services/apify.service.js";
 
 export const getDashboardStats = async (req, res) => {
-  const totalJobs = await Job.countDocuments();
-  const applicationsSent = await Application.countDocuments();
+  const userId = req.user._id;
+  const totalJobs = await Job.countDocuments({ userId });
+  const applicationsSent = await Application.countDocuments({ userId });
   // "Pending" = applied but not yet resolved (rejected/ghosted/offer)
   const pendingApplications = await Application.countDocuments({
+    userId,
     status: { $in: ["applied", "assessment", "interview"] },
   });
   // Wired up once scam detection lands; field doesn't exist on Job yet
   const scamJobsFiltered = 0;
 
-  const limits = await apifyService.getAccountLimits(process.env.APIFY_TOKEN);
+  const limits = await apifyService.getAccountLimits(
+    req.user.apifyToken || process.env.APIFY_TOKEN,
+  );
 
   res.status(200).json({
     success: true,
@@ -29,7 +33,7 @@ export const getDashboardStats = async (req, res) => {
 };
 
 export const getScrapingActivity = async (req, res) => {
-  const recentRuns = await ScrapeRun.find()
+  const recentRuns = await ScrapeRun.find({ userId: req.user._id })
     .sort({ createdAt: -1 })
     .limit(10)
     .lean();

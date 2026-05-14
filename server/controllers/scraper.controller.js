@@ -26,6 +26,8 @@ const resolveActorKey = (value) => {
   return key;
 };
 
+const userToken = (req) => req.user?.apifyToken || process.env.APIFY_TOKEN || "";
+
 export const getActors = async (_req, res) => {
   res.status(200).json({ success: true, data: listActors() });
 };
@@ -44,6 +46,7 @@ export const getScraperStatus = async (req, res) => {
   }
 
   const scrapeRun = await ScrapeRun.create({
+    userId: req.user._id,
     status: "pending",
     actorKey,
     query,
@@ -54,6 +57,7 @@ export const getScraperStatus = async (req, res) => {
 
   try {
     const { runId, datasetId, status } = await apifyService.startAsyncRun({
+      apifyToken: userToken(req),
       actorKey,
       query,
       location,
@@ -66,7 +70,7 @@ export const getScraperStatus = async (req, res) => {
       status: status === "RUNNING" ? "running" : "pending",
     });
 
-    console.log(`Apify run started [${actorKey}]: ${runId}`);
+    console.log(`Apify run started [${actorKey}] for ${req.user.email}: ${runId}`);
 
     return res.status(200).json({
       success: true,
@@ -95,7 +99,9 @@ export const getScraperStatus = async (req, res) => {
 
 export const syncPendingRuns = async (req, res) => {
   try {
-    const result = await scrapeSyncService.syncAllPending();
+    const result = await scrapeSyncService.syncAllPending({
+      userId: req.user._id,
+    });
     res.status(200).json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({
@@ -108,7 +114,10 @@ export const syncPendingRuns = async (req, res) => {
 export const getJobStatus = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const job = await ScrapeRun.findById(jobId).lean();
+    const job = await ScrapeRun.findOne({
+      _id: jobId,
+      userId: req.user._id,
+    }).lean();
 
     if (!job) {
       return res.status(404).json({
@@ -143,15 +152,24 @@ export const getRunResults = async (req, res) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
-    const run = await ScrapeRun.findById(jobId).lean();
+    const run = await ScrapeRun.findOne({
+      _id: jobId,
+      userId: req.user._id,
+    }).lean();
     if (!run) {
       return res.status(404).json({ success: false, message: "Run not found" });
     }
 
-    const totalResults = await Job.countDocuments({ scrapeRunId: run._id });
+    const totalResults = await Job.countDocuments({
+      userId: req.user._id,
+      scrapeRunId: run._id,
+    });
     const totalPages = Math.max(Math.ceil(totalResults / limit), 1);
 
-    const results = await Job.find({ scrapeRunId: run._id })
+    const results = await Job.find({
+      userId: req.user._id,
+      scrapeRunId: run._id,
+    })
       .sort({ createdAt: 1 })
       .skip(skip)
       .limit(limit)
@@ -183,7 +201,10 @@ export const getRunResults = async (req, res) => {
 export const pauseRun = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const run = await ScrapeRun.findById(jobId);
+    const run = await ScrapeRun.findOne({
+      _id: jobId,
+      userId: req.user._id,
+    });
 
     if (!run) {
       return res.status(404).json({ success: false, message: "Run not found" });
@@ -203,7 +224,10 @@ export const pauseRun = async (req, res) => {
       });
     }
 
-    await apifyService.abortRun(run.apifyRunId);
+    await apifyService.abortRun({
+      apifyToken: userToken(req),
+      runId: run.apifyRunId,
+    });
 
     await run.updateOne({
       status: "paused",
@@ -230,7 +254,10 @@ export const pauseRun = async (req, res) => {
 export const rerunRun = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const parentRun = await ScrapeRun.findById(jobId).lean();
+    const parentRun = await ScrapeRun.findOne({
+      _id: jobId,
+      userId: req.user._id,
+    }).lean();
 
     if (!parentRun) {
       return res.status(404).json({ success: false, message: "Run not found" });
@@ -250,6 +277,7 @@ export const rerunRun = async (req, res) => {
     const runBudgetSecs = clampRunBudget(parentRun.runBudgetSecs);
 
     const { runId, datasetId, status } = await apifyService.startAsyncRun({
+      apifyToken: userToken(req),
       actorKey,
       query,
       location,
@@ -257,6 +285,7 @@ export const rerunRun = async (req, res) => {
     });
 
     const newRun = await ScrapeRun.create({
+      userId: req.user._id,
       status: status === "RUNNING" ? "running" : "pending",
       apifyRunId: runId,
       datasetId,
@@ -291,19 +320,22 @@ export const rerunRun = async (req, res) => {
 export const deleteRun = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const run = await ScrapeRun.findById(jobId);
+    const run = await ScrapeRun.findOne({
+      _id: jobId,
+      userId: req.user._id,
+    });
 
     if (!run) {
       return res.status(404).json({ success: false, message: "Run not found" });
     }
 
-    // Abort the Apify run if it is still active
     if (run.apifyRunId && ["pending", "running"].includes(run.status)) {
-      await apifyService.abortRun(run.apifyRunId).catch(() => {});
+      await apifyService
+        .abortRun({ apifyToken: userToken(req), runId: run.apifyRunId })
+        .catch(() => {});
     }
 
-    // Delete all jobs linked to this run, then the run itself
-    await Job.deleteMany({ scrapeRunId: run._id });
+    await Job.deleteMany({ userId: req.user._id, scrapeRunId: run._id });
     await ScrapeRun.deleteOne({ _id: run._id });
 
     return res.status(200).json({
