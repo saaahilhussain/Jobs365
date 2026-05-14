@@ -1,4 +1,5 @@
 import { apifyService } from "../services/apify.service.js";
+import { scrapeSyncService } from "../services/scrapeSync.service.js";
 import { ScrapeRun } from "../models/scrapeRun.model.js";
 import { Job } from "../models/job.model.js";
 
@@ -8,30 +9,6 @@ const clampRunBudget = (value) => {
   const parsed = Number(value);
   if (Number.isNaN(parsed)) return DEFAULT_RUN_BUDGET_SECS;
   return Math.min(Math.max(parsed, 10), 3600);
-};
-
-const enforceRunBudgetIfNeeded = async (run) => {
-  if (!run?.apifyRunId || !run?.runBudgetSecs) return false;
-  if (!["pending", "running"].includes(run.status)) return false;
-
-  const startedAtMs = run.startedAt
-    ? new Date(run.startedAt).getTime()
-    : Date.now();
-  const elapsedSecs = (Date.now() - startedAtMs) / 1000;
-  if (elapsedSecs < run.runBudgetSecs) return false;
-
-  await apifyService.abortRun(run.apifyRunId);
-  // Budget expiry = natural completion, NOT a user-initiated pause
-  await ScrapeRun.updateOne(
-    { _id: run._id },
-    {
-      status: "completed",
-      stopReason: "budget",
-      finishedAt: new Date(),
-    },
-  );
-
-  return true;
 };
 
 export const getScraperStatus = async (req, res) => {
@@ -90,109 +67,8 @@ export const getScraperStatus = async (req, res) => {
 
 export const syncPendingRuns = async (req, res) => {
   try {
-    // Find all pending or running scrape runs
-    const pendingRuns = await ScrapeRun.find({
-      status: { $in: ["pending", "running"] },
-    });
-
-    let syncedCount = 0;
-    let jobsImported = 0;
-    let deletedCount = 0;
-
-    for (const run of pendingRuns) {
-      try {
-        // If we never stored an Apify run id, the record cannot be reconciled.
-        if (!run.apifyRunId) {
-          await ScrapeRun.deleteOne({ _id: run._id });
-          deletedCount++;
-          continue;
-        }
-
-        const budgetStopped = await enforceRunBudgetIfNeeded(run);
-        if (budgetStopped) {
-          continue;
-        }
-
-        // Check run status
-        const { status, finishedAt } = await apifyService.checkRunStatus(
-          run.apifyRunId,
-        );
-
-        const currentSyncedItems = Number(run.syncedItems || 0);
-        const jobs = await apifyService.fetchDatasetItems(run.datasetId, {
-          offset: currentSyncedItems,
-        });
-
-        if (jobs.length > 0) {
-          const jobsToInsert = jobs.map((job) => ({
-            ...job,
-            scrapeRunId: run._id,
-            apifyRunId: run.apifyRunId,
-          }));
-
-          await Job.insertMany(jobsToInsert, { ordered: false }).catch(() => {
-            // Ignore duplicate key errors
-          });
-        }
-
-        const nextSyncedItems = currentSyncedItems + jobs.length;
-
-        if (status === "SUCCEEDED") {
-          await run.updateOne({
-            status: "completed",
-            jobsFetched: nextSyncedItems,
-            syncedItems: nextSyncedItems,
-            finishedAt: new Date(finishedAt || new Date()),
-          });
-        } else if (status === "FAILED" || status === "TIMED-OUT") {
-          await run.updateOne({
-            status: "failed",
-            jobsFetched: nextSyncedItems,
-            syncedItems: nextSyncedItems,
-            finishedAt: new Date(finishedAt || new Date()),
-          });
-        } else if (status === "ABORTED") {
-          await run.updateOne({
-            status: "paused",
-            jobsFetched: nextSyncedItems,
-            syncedItems: nextSyncedItems,
-            finishedAt: new Date(finishedAt || new Date()),
-            stopReason: run.stopReason || "manual",
-          });
-        } else {
-          await run.updateOne({
-            status: "running",
-            jobsFetched: nextSyncedItems,
-            syncedItems: nextSyncedItems,
-          });
-        }
-
-        syncedCount++;
-        jobsImported += jobs.length;
-        console.log(`Synced run ${run.apifyRunId}: ${jobs.length} jobs`);
-      } catch (error) {
-        console.error(`Failed to sync run ${run.apifyRunId}:`, error.message);
-        if (error.response?.status === 404) {
-          await ScrapeRun.deleteOne({ _id: run._id });
-          continue;
-        }
-
-        await run.updateOne({
-          status: "failed",
-          finishedAt: new Date(),
-        });
-      }
-    }
-
-    res.status(200).json({
-      success: true,
-      data: {
-        runsChecked: pendingRuns.length,
-        runsSynced: syncedCount,
-        runsDeleted: deletedCount,
-        jobsImported,
-      },
-    });
+    const result = await scrapeSyncService.syncAllPending();
+    res.status(200).json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({
       success: false,
