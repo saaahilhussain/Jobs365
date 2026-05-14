@@ -9,6 +9,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Jobs365 — Job Tracker</title>
+    <script>
+      // Apply theme before paint to prevent flash. Mirrors ThemeContext logic.
+      (function () {
+        try {
+          var stored = localStorage.getItem("jobs365_theme");
+          var resolved =
+            stored === "dark" || stored === "light"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          if (resolved === "dark") document.documentElement.classList.add("dark");
+        } catch (_) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 export default function AuthShell({ title, subtitle, children, footer }) {
   return (
@@ -11,6 +12,7 @@ export default function AuthShell({ title, subtitle, children, footer }) {
           </span>
           <span className="text-sm font-semibold tracking-tight">Jobs365</span>
         </Link>
+        <ThemeToggle />
       </header>
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-md flex-col justify-center px-5 pb-12">

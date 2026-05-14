@@ -1,4 +1,5 @@
 import { Menu } from "lucide-react";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 export default function Navbar({ onMenuClick, title }) {
   return (
@@ -10,6 +11,9 @@ export default function Navbar({ onMenuClick, title }) {
         <Menu className="h-5 w-5" />
       </button>
       <h1 className="text-base font-semibold text-foreground">{title}</h1>
+      <div className="ml-auto flex items-center gap-1">
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

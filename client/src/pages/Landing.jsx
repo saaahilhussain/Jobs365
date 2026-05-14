@@ -7,6 +7,7 @@ import {
   Sparkles,
   ArrowRight,
 } from "lucide-react";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 const features = [
   {
@@ -67,6 +68,7 @@ function Nav() {
           <span className="text-sm font-semibold tracking-tight">Jobs365</span>
         </Link>
         <nav className="flex items-center gap-1">
+          <ThemeToggle className="mr-1" />
           <Link
             to="/signin"
             className="press inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
