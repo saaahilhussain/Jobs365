@@ -98,7 +98,7 @@ export default function Dashboard() {
           getActors(),
         ]);
         setStats(statsRes);
-        setScrapingActivity(activityRes);
+        setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
         setActors(actorsRes || []);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -129,7 +129,7 @@ export default function Dashboard() {
         await syncPendingRuns();
 
         const activityRes = await getScrapingActivity();
-        setScrapingActivity(activityRes || []);
+        setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
 
         const currentId = selectedActivityIdRef.current;
         if (currentId) {
@@ -230,7 +230,7 @@ export default function Dashboard() {
       // exists at this point (created before the Apify call on the server).
       try {
         const activityRes = await getScrapingActivity();
-        setScrapingActivity(activityRes || []);
+        setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
       } catch (err) {
         console.error("Failed to refresh scraping activity:", err);
       }
@@ -247,7 +247,7 @@ export default function Dashboard() {
     try {
       await pauseScrapeRun(activityId);
       const activityRes = await getScrapingActivity();
-      setScrapingActivity(activityRes || []);
+      setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
       setCronTimerActive(false);
 
       if (selectedActivityId === activityId) {
@@ -282,7 +282,7 @@ export default function Dashboard() {
         getScrapingActivity(),
         getScrapeRunResults(newId, { page: 1, limit: selectedResultsLimit }),
       ]);
-      setScrapingActivity(activityRes || []);
+      setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
       setSelectedResults(runResults.results || []);
       setSelectedResultsMeta(runResults);
     } catch (err) {
