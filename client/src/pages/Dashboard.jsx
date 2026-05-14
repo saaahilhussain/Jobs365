@@ -24,12 +24,15 @@ import {
   pauseScrapeRun,
   rerunScrapeRun,
   deleteScrapeRun,
+  getActors,
 } from "@/api/scraperApi";
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [scrapingActivity, setScrapingActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actors, setActors] = useState([]);
+  const [actor, setActor] = useState("linkedin");
   const [query, setQuery] = useState("software engineer");
   const [location, setLocation] = useState("remote");
   const [limit, setLimit] = useState("20");
@@ -71,12 +74,14 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         await syncPendingRuns();
-        const [statsRes, activityRes] = await Promise.all([
+        const [statsRes, activityRes, actorsRes] = await Promise.all([
           getDashboardStats(),
           getScrapingActivity(),
+          getActors(),
         ]);
         setStats(statsRes);
         setScrapingActivity(activityRes);
+        setActors(actorsRes || []);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
       } finally {
@@ -192,6 +197,7 @@ export default function Dashboard() {
 
     try {
       const data = await startScrapeRun({
+        actor,
         query,
         location,
         limit: Number(limit) || 20,
@@ -363,7 +369,22 @@ export default function Dashboard() {
           <h2 className="text-sm font-semibold">Start Scraping</h2>
         </div>
         <div className="space-y-4 px-5 py-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <select
+              value={actor}
+              onChange={(e) => setActor(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {(actors.length > 0
+                ? actors
+                : [{ key: "linkedin", label: "LinkedIn", configured: true }]
+              ).map((a) => (
+                <option key={a.key} value={a.key} disabled={!a.configured}>
+                  {a.label}
+                  {a.configured ? "" : " (not configured)"}
+                </option>
+              ))}
+            </select>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}

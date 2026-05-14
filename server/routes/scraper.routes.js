@@ -7,12 +7,14 @@ import {
   pauseRun,
   rerunRun,
   deleteRun,
+  getActors,
 } from "../controllers/scraper.controller.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
 router.get("/", asyncHandler(getScraperStatus));
+router.get("/actors", asyncHandler(getActors));
 router.get("/sync", asyncHandler(syncPendingRuns));
 router.post("/:jobId/pause", asyncHandler(pauseRun));
 router.post("/:jobId/rerun", asyncHandler(rerunRun));

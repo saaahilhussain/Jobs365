@@ -5,6 +5,11 @@ export const startScrapeRun = async (params = {}) => {
   return res.data?.data ?? { count: 0, jobs: [] };
 };
 
+export const getActors = async () => {
+  const res = await api.get("/scraper/actors");
+  return res.data?.data ?? [];
+};
+
 export const syncPendingRuns = async () => {
   const res = await api.get("/scraper/sync");
   return res.data?.data ?? { runsChecked: 0, runsSynced: 0, jobsImported: 0 };

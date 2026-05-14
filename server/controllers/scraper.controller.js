@@ -1,5 +1,10 @@
 import { apifyService } from "../services/apify.service.js";
 import { scrapeSyncService } from "../services/scrapeSync.service.js";
+import {
+  actorRegistry,
+  DEFAULT_ACTOR_KEY,
+  listActors,
+} from "../services/actors/index.js";
 import { ScrapeRun } from "../models/scrapeRun.model.js";
 import { Job } from "../models/job.model.js";
 
@@ -11,15 +16,36 @@ const clampRunBudget = (value) => {
   return Math.min(Math.max(parsed, 10), 3600);
 };
 
+const resolveActorKey = (value) => {
+  const key = String(value || DEFAULT_ACTOR_KEY);
+  if (!actorRegistry[key]) {
+    throw Object.assign(new Error(`Unknown actor: ${key}`), {
+      statusCode: 400,
+    });
+  }
+  return key;
+};
+
+export const getActors = async (_req, res) => {
+  res.status(200).json({ success: true, data: listActors() });
+};
+
 export const getScraperStatus = async (req, res) => {
   const query = req.query.query || "software engineer";
   const location = req.query.location || "remote";
   const limit = Number(req.query.limit) || 20;
   const runBudgetSecs = clampRunBudget(req.query.runBudgetSecs);
 
-  // Create a new scrape run record
+  let actorKey;
+  try {
+    actorKey = resolveActorKey(req.query.actor);
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+
   const scrapeRun = await ScrapeRun.create({
     status: "pending",
+    actorKey,
     query,
     location,
     limit,
@@ -28,6 +54,7 @@ export const getScraperStatus = async (req, res) => {
 
   try {
     const { runId, datasetId, status } = await apifyService.startAsyncRun({
+      actorKey,
       query,
       location,
       limit,
@@ -39,13 +66,14 @@ export const getScraperStatus = async (req, res) => {
       status: status === "RUNNING" ? "running" : "pending",
     });
 
-    console.log(`Apify run started: ${runId}`);
+    console.log(`Apify run started [${actorKey}]: ${runId}`);
 
     return res.status(200).json({
       success: true,
       data: {
         jobId: scrapeRun._id,
         apifyRunId: runId,
+        actorKey,
         status,
         message: `Request received by Apify (Run ID: ${runId})`,
         runBudgetSecs,
@@ -215,12 +243,14 @@ export const rerunRun = async (req, res) => {
       });
     }
 
+    const actorKey = resolveActorKey(parentRun.actorKey);
     const query = parentRun.query || "software engineer";
     const location = parentRun.location || "remote";
     const limit = Number(parentRun.limit) || 20;
     const runBudgetSecs = clampRunBudget(parentRun.runBudgetSecs);
 
     const { runId, datasetId, status } = await apifyService.startAsyncRun({
+      actorKey,
       query,
       location,
       limit,
@@ -230,6 +260,7 @@ export const rerunRun = async (req, res) => {
       status: status === "RUNNING" ? "running" : "pending",
       apifyRunId: runId,
       datasetId,
+      actorKey,
       query,
       location,
       limit,

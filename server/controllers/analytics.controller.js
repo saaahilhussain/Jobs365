@@ -37,7 +37,7 @@ export const getScrapingActivity = async (req, res) => {
   const activity = recentRuns.map((run) => ({
     id: run._id,
     apifyRunId: run.apifyRunId || null,
-    source: "linkedin",
+    source: run.actorKey || "linkedin",
     jobs: run.jobsFetched,
     query: run.query || null,
     location: run.location || null,

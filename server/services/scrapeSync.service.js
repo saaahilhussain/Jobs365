@@ -39,6 +39,7 @@ const syncRun = async (run) => {
   const currentSyncedItems = Number(run.syncedItems || 0);
   const jobs = await apifyService.fetchDatasetItems(run.datasetId, {
     offset: currentSyncedItems,
+    actorKey: run.actorKey,
   });
 
   if (jobs.length > 0) {
