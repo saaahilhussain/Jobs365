@@ -4,6 +4,7 @@ const scrapeRunSchema = new mongoose.Schema(
   {
     apifyRunId: { type: String },
     datasetId: { type: String },
+    actorKey: { type: String, default: "linkedin" },
     query: { type: String, default: "software engineer" },
     location: { type: String, default: "remote" },
     limit: { type: Number, default: 20 },

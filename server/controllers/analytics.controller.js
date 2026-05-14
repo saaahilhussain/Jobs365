@@ -1,14 +1,19 @@
 import { ScrapeRun } from "../models/scrapeRun.model.js";
 import { Job } from "../models/job.model.js";
 import { Application } from "../models/application.model.js";
+import { apifyService } from "../services/apify.service.js";
 
 export const getDashboardStats = async (req, res) => {
   const totalJobs = await Job.countDocuments();
   const applicationsSent = await Application.countDocuments();
+  // "Pending" = applied but not yet resolved (rejected/ghosted/offer)
   const pendingApplications = await Application.countDocuments({
-    status: "pending",
+    status: { $in: ["applied", "assessment", "interview"] },
   });
-  const scamJobsFiltered = await Job.countDocuments({ scamDetected: true });
+  // Wired up once scam detection lands; field doesn't exist on Job yet
+  const scamJobsFiltered = 0;
+
+  const limits = await apifyService.getAccountLimits(process.env.APIFY_TOKEN);
 
   res.status(200).json({
     success: true,
@@ -17,7 +22,8 @@ export const getDashboardStats = async (req, res) => {
       applicationsSent,
       pendingApplications,
       scamJobsFiltered,
-      apifyCreditsRemaining: 9999, // Placeholder
+      apifyUsage: limits,
+      apifyCreditsRemaining: limits?.remainingMonthlyUsageUsd ?? null,
     },
   });
 };
