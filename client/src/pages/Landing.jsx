@@ -38,11 +38,11 @@ const features = [
 ];
 
 const trustedLogos = [
-  { name: "LinkedIn", slug: "linkedin" },
-  { name: "Indeed", slug: "indeed" },
-  { name: "Glassdoor", slug: "glassdoor" },
-  { name: "Naukri", slug: "naukridotcom" },
-  { name: "Internshala", slug: "internshala" },
+  { name: "LinkedIn", domain: "linkedin.com" },
+  { name: "Indeed", domain: "indeed.com" },
+  { name: "Glassdoor", domain: "glassdoor.com" },
+  { name: "Naukri", domain: "naukri.com" },
+  { name: "Internshala", domain: "internshala.com" },
 ];
 
 export default function Landing() {
@@ -223,11 +223,12 @@ function TrustedRow() {
           <div className="marquee-track flex w-max items-center gap-12">
             {loop.map((logo, i) => (
               <img
-                key={`${logo.slug}-${i}`}
-                src={`https://cdn.simpleicons.org/${logo.slug}`}
+                key={`${logo.domain}-${i}`}
+                src={`https://www.google.com/s2/favicons?domain=${logo.domain}&sz=128`}
                 alt={logo.name}
+                title={logo.name}
                 loading="lazy"
-                className="h-6 w-auto shrink-0 opacity-60 grayscale"
+                className="h-8 w-8 shrink-0 rounded"
               />
             ))}
           </div>

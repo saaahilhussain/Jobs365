@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:cdn.simpleicons.org)",
+      "PowerShell($urls = @\\(\"linkedin\",\"indeed\",\"glassdoor\",\"naukridotcom\",\"naukri\",\"internshala\"\\); foreach \\($u in $urls\\) { try { $r = Invoke-WebRequest -Uri \"https://cdn.simpleicons.org/$u\" -Method Head -UseBasicParsing -ErrorAction Stop; \"$u : $\\($r.StatusCode\\)\" } catch { \"$u : $\\($_.Exception.Response.StatusCode.value__\\)\" } })",
+      "PowerShell($urls = @\\(\"linkedin.com\",\"indeed.com\",\"glassdoor.com\",\"naukri.com\",\"internshala.com\"\\); foreach \\($u in $urls\\) { try { $r = Invoke-WebRequest -Uri \"https://logo.clearbit.com/$u\" -Method Head -UseBasicParsing -ErrorAction Stop; \"$u : $\\($r.StatusCode\\)\" } catch { \"$u : $\\($_.Exception.Response.StatusCode.value__\\)\" } })"
+    ]
+  }
+}
