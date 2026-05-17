@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, MapPin, ExternalLink } from "lucide-react";
+import { ChevronRight, MapPin, ExternalLink, KeyRound, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
+import { useAuth } from "@/contexts/AuthContext";
 import { getScrapingActivity } from "@/api/analyticsApi";
 import { getScrapeRunResults } from "@/api/scraperApi";
 
@@ -16,6 +18,8 @@ const statusClasses = (status) => {
 };
 
 export default function Jobs() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 

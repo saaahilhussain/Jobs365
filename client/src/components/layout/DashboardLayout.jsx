@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import ApifyOnboardingModal from "@/components/ApifyOnboardingModal";
 
 const pageTitles = {
   "/app": "Dashboard",
@@ -18,6 +19,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      <ApifyOnboardingModal />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="md:pl-56">
         <Navbar

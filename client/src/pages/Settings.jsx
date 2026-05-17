@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, AlertCircle, LogOut } from "lucide-react";
+import ApifyOnboardingModal from "@/components/ApifyOnboardingModal";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getSettings,
@@ -12,6 +13,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 export default function Settings() {
   const { user, logout, refresh } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
@@ -108,6 +110,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <ApifyOnboardingModal open={guideOpen} onClose={() => setGuideOpen(false)} />
       {/* Account */}
       <Section title="Account">
         <div className="flex items-center gap-3">
@@ -141,9 +144,17 @@ export default function Settings() {
       {/* Apify */}
       <Section title="Apify">
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
-            Apify API Token
-          </label>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-xs font-medium text-muted-foreground">
+              Apify API Token
+            </label>
+            <button
+              onClick={() => setGuideOpen(true)}
+              className="text-xs text-sidebar-active hover:underline"
+            >
+              How to get your API token
+            </button>
+          </div>
           {hasToken && !tokenInput && (
             <p className="mb-2 text-xs text-muted-foreground">
               Currently saved: <span className="font-mono">{existingMask}</span>
