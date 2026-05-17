@@ -19,13 +19,12 @@ const clientLoginUrl = () =>
 
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"], session: false }),
+  passport.authenticate("google", { scope: ["profile", "email"] }),
 );
 router.get(
   "/google/callback",
   (req, res, next) =>
     passport.authenticate("google", {
-      session: false,
       failureRedirect: clientLoginUrl(),
     })(req, res, next),
   oauthCallback,
@@ -33,13 +32,12 @@ router.get(
 
 router.get(
   "/github",
-  passport.authenticate("github", { scope: ["user:email"], session: false }),
+  passport.authenticate("github", { scope: ["user:email"] }),
 );
 router.get(
   "/github/callback",
   (req, res, next) =>
     passport.authenticate("github", {
-      session: false,
       failureRedirect: clientLoginUrl(),
     })(req, res, next),
   oauthCallback,

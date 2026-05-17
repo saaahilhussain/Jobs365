@@ -36,7 +36,8 @@ export default function Sidebar({ isOpen, onClose }) {
         }`}
       >
         {/* Logo / Brand */}
-        <div className="flex h-14 items-center border-b border-border px-5">
+        <div className="flex h-14 items-center border-b border-border px-4 gap-2.5">
+          <img src="/logos/jobs-365-logo.png" alt="Jobs365" className="h-7 w-7 rounded-lg" />
           <span className="text-base font-semibold tracking-tight text-foreground">
             Jobs365
           </span>

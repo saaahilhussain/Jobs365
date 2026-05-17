@@ -47,6 +47,19 @@ const upsertUser = async ({ provider, providerId, email, name, avatarUrl }) => {
 const apiBase = () => process.env.API_BASE_URL || "http://localhost:5000";
 
 export const configurePassport = () => {
+  passport.serializeUser((user, done) => {
+    done(null, user._id.toString());
+  });
+
+  passport.deserializeUser(async (id, done) => {
+    try {
+      const user = await User.findById(id);
+      done(null, user || false);
+    } catch (err) {
+      done(err);
+    }
+  });
+
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(
       new GoogleStrategy(
