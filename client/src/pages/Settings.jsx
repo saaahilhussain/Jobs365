@@ -22,6 +22,7 @@ export default function Settings() {
   const [tokenInput, setTokenInput] = useState("");
   const [existingMask, setExistingMask] = useState("");
   const [hasToken, setHasToken] = useState(false);
+  const [apifyUsername, setApifyUsername] = useState("");
   const [defaultActor, setDefaultActor] = useState("linkedin");
   const [actors, setActors] = useState([]);
 
@@ -35,6 +36,7 @@ export default function Settings() {
         if (settings) {
           setExistingMask(settings.apifyToken || "");
           setHasToken(Boolean(settings.hasApifyToken));
+          setApifyUsername(settings.apifyUsername || "");
           setDefaultActor(settings.defaultActorKey || "linkedin");
         }
         setActors(actorList || []);
@@ -56,6 +58,7 @@ export default function Settings() {
       const updated = await updateSettings(payload);
       setExistingMask(updated.apifyToken || "");
       setHasToken(Boolean(updated.hasApifyToken));
+      setApifyUsername(updated.apifyUsername || "");
       setTokenInput("");
       setSavedMessage("Saved");
       await refresh();
@@ -97,6 +100,7 @@ export default function Settings() {
       const updated = await updateSettings({ apifyToken: "" });
       setExistingMask("");
       setHasToken(Boolean(updated.hasApifyToken));
+      setApifyUsername("");
       setTokenInput("");
       await refresh();
     } catch (err) {
@@ -156,9 +160,17 @@ export default function Settings() {
             </button>
           </div>
           {hasToken && !tokenInput && (
-            <p className="mb-2 text-xs text-muted-foreground">
-              Currently saved: <span className="font-mono">{existingMask}</span>
-            </p>
+            <div className="mb-2 space-y-0.5">
+              <p className="text-xs text-muted-foreground">
+                Currently saved: <span className="font-mono">{existingMask}</span>
+              </p>
+              {apifyUsername && (
+                <p className="text-xs text-muted-foreground">
+                  Connected as:{" "}
+                  <span className="font-medium text-foreground">{apifyUsername}</span>
+                </p>
+              )}
+            </div>
           )}
           <input
             type="password"

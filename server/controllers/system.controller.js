@@ -9,12 +9,25 @@ const maskToken = (token) => {
   return `${token.slice(0, 4)}…${token.slice(-4)}`;
 };
 
+const fetchApifyUsername = async (token) => {
+  try {
+    const response = await axios.get(`${APIFY_BASE_URL}/users/me`, {
+      params: { token },
+    });
+    const data = response.data?.data ?? {};
+    return data.username || data.email || "";
+  } catch {
+    return "";
+  }
+};
+
 export const getSystemInfo = async (req, res) => {
   res.status(200).json({
     success: true,
     data: {
       apifyToken: maskToken(req.user.apifyToken),
       hasApifyToken: Boolean(req.user.apifyToken),
+      apifyUsername: req.user.apifyUsername || "",
       defaultActorKey: req.user.defaultActorKey,
     },
   });
@@ -22,9 +35,13 @@ export const getSystemInfo = async (req, res) => {
 
 export const updateSettings = async (req, res) => {
   const update = {};
+
   if (typeof req.body?.apifyToken === "string") {
-    update.apifyToken = req.body.apifyToken.trim();
+    const token = req.body.apifyToken.trim();
+    update.apifyToken = token;
+    update.apifyUsername = token ? await fetchApifyUsername(token) : "";
   }
+
   if (typeof req.body?.defaultActorKey === "string") {
     update.defaultActorKey = req.body.defaultActorKey;
   }
@@ -38,6 +55,7 @@ export const updateSettings = async (req, res) => {
     data: {
       apifyToken: maskToken(user.apifyToken),
       hasApifyToken: Boolean(user.apifyToken),
+      apifyUsername: user.apifyUsername || "",
       defaultActorKey: user.defaultActorKey,
     },
   });

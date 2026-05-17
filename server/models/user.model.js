@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
     emailVerified: { type: Boolean, default: false },
     // Per-user Apify token; stored plaintext for now. Move to KMS / encrypt-at-rest later.
     apifyToken: { type: String, default: "" },
+    apifyUsername: { type: String, default: "" },
     defaultActorKey: { type: String, default: "linkedin" },
   },
   { timestamps: true },
