@@ -10,17 +10,37 @@ const upsertUser = async ({ provider, providerId, email, name, avatarUrl }) => {
   if (!email) {
     throw new Error(`OAuth provider '${provider}' returned no email`);
   }
-  const update = {
+  const normalizedEmail = email.toLowerCase();
+
+  // 1) Same provider account exists — update and return.
+  const sameProvider = await User.findOne({ provider, providerId });
+  if (sameProvider) {
+    sameProvider.email = normalizedEmail;
+    sameProvider.name = name || sameProvider.name;
+    sameProvider.avatarUrl = avatarUrl || sameProvider.avatarUrl;
+    await sameProvider.save();
+    return sameProvider;
+  }
+
+  // 2) Different account already owns this email (e.g. email/password signup,
+  // or the other OAuth provider). Sign them into the existing account — the
+  // user owns the inbox, so this is safe. We don't overwrite their original
+  // provider/providerId, so the original login method keeps working.
+  const sameEmail = await User.findOne({ email: normalizedEmail });
+  if (sameEmail) {
+    if (name && !sameEmail.name) sameEmail.name = name;
+    if (avatarUrl && !sameEmail.avatarUrl) sameEmail.avatarUrl = avatarUrl;
+    await sameEmail.save();
+    return sameEmail;
+  }
+
+  // 3) Brand new — create.
+  return User.create({
     provider,
     providerId,
-    email: email.toLowerCase(),
+    email: normalizedEmail,
     name: name || "",
     avatarUrl: avatarUrl || "",
-  };
-  return User.findOneAndUpdate({ provider, providerId }, update, {
-    new: true,
-    upsert: true,
-    setDefaultsOnInsert: true,
   });
 };
 
