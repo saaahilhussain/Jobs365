@@ -1,11 +1,13 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Briefcase,
   Send,
   BarChart3,
   Settings,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
@@ -16,6 +18,8 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   return (
     <>
       {/* Mobile overlay */}
@@ -61,8 +65,14 @@ export default function Sidebar({ isOpen, onClose }) {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-border px-5 py-3">
-          <p className="text-xs text-muted-foreground">v0.1.0 — scaffolding</p>
+        <div className="border-t border-border px-3 py-3">
+          <button
+            onClick={async () => { await logout(); navigate("/signin", { replace: true }); }}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-accent hover:text-sidebar-active"
+          >
+            <LogOut className="h-4 w-4" />
+            Log out
+          </button>
         </div>
       </aside>
     </>
