@@ -21,4 +21,7 @@ export default {
   id: process.env.APIFY_ACTOR_GLASSDOOR || "crawlerbros/glassdoor-jobs-scraper",
   buildInput,
   mapItem,
+  // Glassdoor's results page can be permissive; post-filter by title to
+  // keep the run tightly scoped to the user's query.
+  requiresPostFilter: true,
 };

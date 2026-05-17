@@ -1,8 +1,10 @@
 const buildInput = ({ query, location, limit }) => {
-  // Wellfound filters jobs by role slug, e.g. /role/software-engineer
-  const roleSlug = (query || "").trim().toLowerCase().replace(/\s+/g, "-");
-  const url = roleSlug
-    ? `https://wellfound.com/role/${encodeURIComponent(roleSlug)}`
+  // Wellfound's /role/<slug> pages require canonical slugs (e.g. "software-engineer")
+  // and arbitrary queries like "node.js" 404 there. The /jobs?keyword=<q> route
+  // accepts any free-text query and returns matching listings.
+  const q = (query || "").trim();
+  const url = q
+    ? `https://wellfound.com/jobs?keyword=${encodeURIComponent(q)}`
     : "https://wellfound.com/jobs";
   return {
     startUrls: [url],
@@ -29,4 +31,7 @@ export default {
   id: process.env.APIFY_ACTOR_WELLFOUND || "crawlerbros/wellfound-scraper",
   buildInput,
   mapItem,
+  // Wellfound's /jobs?keyword= page filters client-side via JS, so the
+  // actor receives the full unfiltered HTML. Post-filter by title here.
+  requiresPostFilter: true,
 };

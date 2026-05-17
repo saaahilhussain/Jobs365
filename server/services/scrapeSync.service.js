@@ -84,6 +84,7 @@ const syncRun = async (run, apifyToken) => {
     datasetId: run.datasetId,
     offset: currentSyncedItems,
     actorKey: run.actorKey,
+    query: run.query,
   });
 
   const { insertedCount, duplicateCount } = await insertJobsAndCount(jobs, run);

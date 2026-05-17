@@ -1,16 +1,12 @@
 import linkedin from "./linkedin.js";
 import indeed from "./indeed.js";
 import glassdoor from "./glassdoor.js";
-import naukri from "./naukri.js";
-import internshala from "./internshala.js";
 import wellfound from "./wellfound.js";
 
 export const actorRegistry = {
   [linkedin.key]: linkedin,
   [indeed.key]: indeed,
   [glassdoor.key]: glassdoor,
-  [naukri.key]: naukri,
-  [internshala.key]: internshala,
   [wellfound.key]: wellfound,
 };
 

@@ -160,7 +160,13 @@ export const apifyService = {
     }
   },
 
-  fetchDatasetItems: async ({ apifyToken, datasetId, offset = 0, actorKey }) => {
+  fetchDatasetItems: async ({
+    apifyToken,
+    datasetId,
+    offset = 0,
+    actorKey,
+    query,
+  }) => {
     const token = ensureToken(apifyToken);
     const actor = resolveActor(actorKey);
     try {
@@ -172,7 +178,28 @@ export const apifyService = {
         },
       );
       const items = Array.isArray(response.data) ? response.data : [];
-      return items.map(actor.mapItem);
+      let mapped = items.map(actor.mapItem);
+
+      // For actors whose source page doesn't reliably server-filter by query
+      // (e.g. Wellfound's client-side search), post-filter by title match.
+      // Use token-OR matching: if ANY token from the query (length >= 3)
+      // appears in the title, the item passes. Fall back to all items if
+      // the filter would remove everything — better to show broad results
+      // than to make the activity disappear.
+      if (actor.requiresPostFilter && query) {
+        const tokens = String(query)
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((t) => t.length >= 3);
+        if (tokens.length > 0) {
+          const filtered = mapped.filter((item) => {
+            const title = String(item.title || "").toLowerCase();
+            return tokens.some((t) => title.includes(t));
+          });
+          if (filtered.length > 0) mapped = filtered;
+        }
+      }
+      return mapped;
     } catch (error) {
       console.error("Failed to fetch dataset items:", error.message);
       throw error;

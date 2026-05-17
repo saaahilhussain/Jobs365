@@ -13,7 +13,7 @@ const DEFAULT_RUN_BUDGET_SECS = Number(process.env.APIFY_RUN_BUDGET_SECS || 60);
 const clampRunBudget = (value) => {
   const parsed = Number(value);
   if (Number.isNaN(parsed)) return DEFAULT_RUN_BUDGET_SECS;
-  return Math.min(Math.max(parsed, 10), 60);
+  return Math.min(Math.max(parsed, 10), 120);
 };
 
 const resolveActorKey = (value) => {

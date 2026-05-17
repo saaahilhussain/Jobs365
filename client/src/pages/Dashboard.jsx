@@ -51,12 +51,17 @@ export default function Dashboard() {
   const [location, setLocation] = useState("remote");
   const [limit, setLimit] = useState("20");
   const [runBudgetSecs, setRunBudgetSecs] = useState("30");
+  // Glassdoor only works with a 120s budget (Cloudflare/anti-bot bypass time).
+  useEffect(() => {
+    if (actor === "glassdoor") setRunBudgetSecs("120");
+  }, [actor]);
   const [apifyCredits, setApifyCredits] = useState(null);
   const [loadingCredits, setLoadingCredits] = useState(true);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState(null);
   const [scrapeError, setScrapeError] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [runFinishedMessage, setRunFinishedMessage] = useState("");
 
   // --- Timer ---
   // cronTimerActive: true when we have an active Apify run to poll
@@ -108,8 +113,13 @@ export default function Dashboard() {
           getActors(),
         ]);
         setStats(statsRes);
+        // Hide completed runs ONLY if they produced jobs (they're in the
+        // Jobs section now). Empty completed runs stay visible so the user
+        // can see that the source returned nothing.
         setScrapingActivity(
-          (activityRes || []).filter((a) => a.status !== "completed"),
+          (activityRes || []).filter(
+            (a) => !(a.status === "completed" && (a.jobs || 0) > 0),
+          ),
         );
         setActors(actorsRes || []);
       } catch (err) {
@@ -141,8 +151,15 @@ export default function Dashboard() {
         await syncPendingRuns();
 
         const activityRes = await getScrapingActivity();
+        // activeRuns is for timer-stop logic — strictly pending/running.
+        const activeRuns = (activityRes || []).filter(
+          (a) => a.status === "pending" || a.status === "running",
+        );
+        // Display: hide completed runs that have jobs (they're in Jobs section).
         setScrapingActivity(
-          (activityRes || []).filter((a) => a.status !== "completed"),
+          (activityRes || []).filter(
+            (a) => !(a.status === "completed" && (a.jobs || 0) > 0),
+          ),
         );
 
         const currentId = selectedActivityIdRef.current;
@@ -153,12 +170,18 @@ export default function Dashboard() {
           });
           setSelectedResults(runResults.results || []);
           setSelectedResultsMeta(runResults);
+        }
 
-          // Stop the timer once the run is in a terminal state
-          if (["completed", "failed", "paused"].includes(runResults.status)) {
-            cronTimerActiveRef.current = false; // stop interval ticks immediately
-            setCronTimerActive(false); // trigger effect cleanup
-          }
+        // Stop the timer once there are no pending/running runs left.
+        // This is the authoritative signal — covers cases where the user
+        // never selected an activity, so the per-run terminal check below
+        // would never fire.
+        if (activeRuns.length === 0) {
+          cronTimerActiveRef.current = false;
+          setCronTimerActive(false);
+          setScrapeResult(null);
+          setRunFinishedMessage("Activity added to Jobs section");
+          setTimeout(() => setRunFinishedMessage(""), 6000);
         }
       } catch (err) {
         console.error("Failed to refresh activity/results:", err);
@@ -224,6 +247,7 @@ export default function Dashboard() {
     setIsScraping(true);
     setScrapeError("");
     setScrapeResult(null);
+    setRunFinishedMessage("");
     setCronTimerActive(false);
 
     try {
@@ -245,7 +269,9 @@ export default function Dashboard() {
       try {
         const activityRes = await getScrapingActivity();
         setScrapingActivity(
-          (activityRes || []).filter((a) => a.status !== "completed"),
+          (activityRes || []).filter(
+          (a) => !(a.status === "completed" && (a.jobs || 0) > 0),
+        ),
         );
       } catch (err) {
         console.error("Failed to refresh scraping activity:", err);
@@ -264,7 +290,9 @@ export default function Dashboard() {
       await pauseScrapeRun(activityId);
       const activityRes = await getScrapingActivity();
       setScrapingActivity(
-        (activityRes || []).filter((a) => a.status !== "completed"),
+        (activityRes || []).filter(
+          (a) => !(a.status === "completed" && (a.jobs || 0) > 0),
+        ),
       );
       setCronTimerActive(false);
 
@@ -301,7 +329,9 @@ export default function Dashboard() {
         getScrapeRunResults(newId, { page: 1, limit: selectedResultsLimit }),
       ]);
       setScrapingActivity(
-        (activityRes || []).filter((a) => a.status !== "completed"),
+        (activityRes || []).filter(
+          (a) => !(a.status === "completed" && (a.jobs || 0) > 0),
+        ),
       );
       setSelectedResults(runResults.results || []);
       setSelectedResultsMeta(runResults);
@@ -484,8 +514,17 @@ export default function Dashboard() {
               onChange={(e) => setRunBudgetSecs(e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
-              <option value="30">Run budget: 30s</option>
-              <option value="60">Run budget: 60s</option>
+              {actor === "glassdoor" ? (
+                <option value="120">
+                  Run budget: 120s (required for Glassdoor)
+                </option>
+              ) : (
+                <>
+                  <option value="30">Run budget: 30s</option>
+                  <option value="60">Run budget: 60s</option>
+                  <option value="120">Run budget: 120s</option>
+                </>
+              )}
             </select>
           </div>
           <button
@@ -516,6 +555,8 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">
               Waiting for Apify to accept the request...
             </p>
+          ) : runFinishedMessage ? (
+            <p className="text-sm text-green-600">{runFinishedMessage}</p>
           ) : scrapeResult ? (
             <p className="text-sm text-green-600">{scrapeResult.message}</p>
           ) : null}
