@@ -6,26 +6,30 @@ const buildInput = ({ query, location, limit }) => {
     .toLowerCase()}`;
   const url = `https://www.naukri.com/${slug}`;
   return {
-    startUrls: [{ url }],
+    searchUrls: [url],
     maxItems: limit,
+    proxyConfiguration: { useApifyProxy: true },
   };
 };
 
-const mapItem = (item) => ({
-  title: item.title || item.jobTitle || "Untitled job",
-  company: item.company || item.companyName || "Unknown company",
-  source: "naukri",
-  externalId: item.id || item.jobId || null,
-  location: item.location || item.placeOfWork || null,
-  url: item.url || item.jdURL || null,
-  raw: item,
-});
+const mapItem = (item) => {
+  const placeholders = item.placeholders || {};
+  return {
+    title: item.title || item.jobTitle || "Untitled job",
+    company: item.companyName || item.company || "Unknown company",
+    source: "naukri",
+    externalId: item.jobId || item.id || null,
+    location:
+      placeholders.location || item.location || item.placeOfWork || null,
+    url: item.jdURL || item.url || null,
+    raw: item,
+  };
+};
 
 export default {
   key: "naukri",
   label: "Naukri",
-  // No widely-canonical Apify actor for Naukri; user must supply via env.
-  id: process.env.APIFY_ACTOR_NAUKRI || "epctex/naukri-scraper",
+  id: process.env.APIFY_ACTOR_NAUKRI || "easyapi/naukri-jobs-scraper",
   buildInput,
   mapItem,
 };

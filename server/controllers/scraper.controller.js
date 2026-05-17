@@ -57,59 +57,65 @@ export const getScraperStatus = async (req, res) => {
     return res.status(400).json({ success: false, message: error.message });
   }
 
-  const scrapeRun = await ScrapeRun.create({
-    userId: req.user._id,
-    status: "pending",
-    actorKey,
-    query,
-    location,
-    limit,
-    runBudgetSecs,
-  });
-
   const apifyToken = requireUserToken(req, res);
   if (!apifyToken) return;
 
+  // Start the Apify run BEFORE creating the ScrapeRun row. Otherwise the
+  // server-side sync cron (running every 10s) can fire during the 1-3s window
+  // between create and the post-Apify update — it sees a row with no
+  // apifyRunId and deletes it as orphaned. The later updateOne then silently
+  // no-ops, and the run effectively vanishes (frontend timer ticks forever
+  // with no progress). Creating after Apify confirms guarantees the row
+  // always carries an apifyRunId from inception.
+  let apifyRun;
   try {
-    const { runId, datasetId, status } = await apifyService.startAsyncRun({
+    apifyRun = await apifyService.startAsyncRun({
       apifyToken,
       actorKey,
       query,
       location,
       limit,
     });
-
-    await scrapeRun.updateOne({
-      apifyRunId: runId,
-      datasetId,
-      status: status === "RUNNING" ? "running" : "pending",
-    });
-
-    console.log(`Apify run started [${actorKey}] for ${req.user.email}: ${runId}`);
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        jobId: scrapeRun._id,
-        apifyRunId: runId,
-        actorKey,
-        status,
-        message: `Request received by Apify (Run ID: ${runId})`,
-        runBudgetSecs,
-      },
-    });
   } catch (error) {
     console.error("Failed to start async run:", error.message);
-    await scrapeRun.updateOne({
-      status: "failed",
-      finishedAt: new Date(),
-    });
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    const apifyErr = error.response?.data?.error;
+    const friendly =
+      apifyErr?.type === "actor-is-not-rented"
+        ? "This Apify actor is paid-only and your free trial has expired. Pick a different source or rent the actor on Apify."
+        : apifyErr?.type === "record-not-found"
+          ? "The configured Apify actor doesn't exist. Check the actor ID in server/.env."
+          : error.message;
+    return res.status(500).json({ success: false, message: friendly });
   }
+
+  const { runId, datasetId, status } = apifyRun;
+
+  const scrapeRun = await ScrapeRun.create({
+    userId: req.user._id,
+    status: status === "RUNNING" ? "running" : "pending",
+    actorKey,
+    query,
+    location,
+    limit,
+    runBudgetSecs,
+    apifyRunId: runId,
+    datasetId,
+    startedAt: new Date(),
+  });
+
+  console.log(`Apify run started [${actorKey}] for ${req.user.email}: ${runId}`);
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      jobId: scrapeRun._id,
+      apifyRunId: runId,
+      actorKey,
+      status,
+      message: `Request received by Apify (Run ID: ${runId})`,
+      runBudgetSecs,
+    },
+  });
 };
 
 export const syncPendingRuns = async (req, res) => {

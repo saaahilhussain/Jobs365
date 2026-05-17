@@ -52,7 +52,7 @@ export const apifyService = {
       limit: normalizedLimit,
     });
     const timeout = Number(process.env.APIFY_TIMEOUT_SECS) || DEFAULT_TIMEOUT_SECS;
-    const url = `${APIFY_BASE_URL}/acts/${encodeURIComponent(actor.id)}/run-sync-get-dataset-items`;
+    const url = `${APIFY_BASE_URL}/acts/${actor.id.replace("/", "~")}/run-sync-get-dataset-items`;
 
     try {
       console.log(`Calling Apify [${actor.key}]`);
@@ -88,7 +88,7 @@ export const apifyService = {
       location,
       limit: normalizedLimit,
     });
-    const url = `${APIFY_BASE_URL}/acts/${encodeURIComponent(actor.id)}/runs`;
+    const url = `${APIFY_BASE_URL}/acts/${actor.id.replace("/", "~")}/runs`;
 
     try {
       console.log(`Starting async Apify run [${actor.key}]`);

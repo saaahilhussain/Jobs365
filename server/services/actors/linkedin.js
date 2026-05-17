@@ -25,7 +25,7 @@ export default {
   id:
     process.env.APIFY_ACTOR_LINKEDIN ||
     process.env.APIFY_ACTOR_ID ||
-    "misceres/linkedin-jobs-scraper",
+    "curious_coder/linkedin-jobs-scraper",
   buildInput,
   mapItem,
 };
