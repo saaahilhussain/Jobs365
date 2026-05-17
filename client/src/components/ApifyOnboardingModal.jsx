@@ -60,8 +60,8 @@ export default function ApifyOnboardingModal({ open: controlledOpen, onClose: on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative w-full max-w-lg rounded-xl border border-border bg-background shadow-2xl">
+    <div className="animate-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="animate-modal-panel relative w-full max-w-lg rounded-xl border border-border bg-background shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-border px-6 py-5">
           <div className="flex items-center gap-3">

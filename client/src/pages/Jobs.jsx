@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, MapPin, ExternalLink, KeyRound, ArrowRight } from "lucide-react";
+import {
+  ChevronRight,
+  MapPin,
+  ExternalLink,
+  KeyRound,
+  ArrowRight,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import EmptyState from "@/components/ui/EmptyState";
@@ -24,11 +30,11 @@ export default function Jobs() {
   const [loading, setLoading] = useState(true);
 
   // per-activity accordion state keyed by activity id
-  const [expanded, setExpanded] = useState({});     // id → true/false
-  const [results, setResults] = useState({});        // id → job[]
-  const [meta, setMeta] = useState({});              // id → { totalResults, totalPages, page }
-  const [loadingId, setLoadingId] = useState(null);  // id currently fetching
-  const [pages, setPages] = useState({});            // id → current page
+  const [expanded, setExpanded] = useState({}); // id → true/false
+  const [results, setResults] = useState({}); // id → job[]
+  const [meta, setMeta] = useState({}); // id → { totalResults, totalPages, page }
+  const [loadingId, setLoadingId] = useState(null); // id currently fetching
+  const [pages, setPages] = useState({}); // id → current page
 
   useEffect(() => {
     getScrapingActivity()
@@ -44,7 +50,10 @@ export default function Jobs() {
         page,
         limit: JOBS_PER_PAGE,
       });
-      setResults((prev) => ({ ...prev, [activityId]: runResults.results || [] }));
+      setResults((prev) => ({
+        ...prev,
+        [activityId]: runResults.results || [],
+      }));
       setMeta((prev) => ({ ...prev, [activityId]: runResults }));
       setPages((prev) => ({ ...prev, [activityId]: page }));
     } catch (err) {
@@ -69,10 +78,31 @@ export default function Jobs() {
 
   if (loading) return <LoadingSpinner text="Loading jobs..." />;
 
-  const withJobs = activities.filter((a) => a.status === "completed" && a.jobs > 0);
+  const withJobs = activities.filter(
+    (a) => a.status === "completed" && a.jobs > 0,
+  );
 
   return (
     <div className="space-y-4">
+      {!user?.hasApifyToken && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-5 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <div className="flex items-center gap-3">
+            <KeyRound className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              You haven't added your Apify API key yet — it's required to search
+              for jobs.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/app/settings")}
+            className="cursor-pointer flex shrink-0 items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+          >
+            Add API key
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border">
         <div className="border-b border-border px-5 py-3">
           <h2 className="text-sm font-semibold">Jobs</h2>
@@ -192,7 +222,9 @@ export default function Jobs() {
                                       </p>
                                       <p className="text-xs text-muted-foreground truncate">
                                         {job.company}
-                                        {job.location ? ` · ${job.location}` : ""}
+                                        {job.location
+                                          ? ` · ${job.location}`
+                                          : ""}
                                       </p>
                                     </div>
                                   </div>
@@ -215,12 +247,15 @@ export default function Jobs() {
                             {activityMeta?.totalPages > 1 ? (
                               <div className="flex items-center justify-between pt-2">
                                 <p className="text-xs text-muted-foreground">
-                                  Page {currentPage} of {activityMeta.totalPages}
+                                  Page {currentPage} of{" "}
+                                  {activityMeta.totalPages}
                                 </p>
                                 <Pagination
                                   currentPage={currentPage}
                                   totalPages={activityMeta.totalPages}
-                                  onPageChange={(p) => handlePageChange(activity.id, p)}
+                                  onPageChange={(p) =>
+                                    handlePageChange(activity.id, p)
+                                  }
                                 />
                               </div>
                             ) : null}

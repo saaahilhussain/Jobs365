@@ -13,7 +13,7 @@ const DEFAULT_RUN_BUDGET_SECS = Number(process.env.APIFY_RUN_BUDGET_SECS || 60);
 const clampRunBudget = (value) => {
   const parsed = Number(value);
   if (Number.isNaN(parsed)) return DEFAULT_RUN_BUDGET_SECS;
-  return Math.min(Math.max(parsed, 10), 3600);
+  return Math.min(Math.max(parsed, 10), 60);
 };
 
 const resolveActorKey = (value) => {
@@ -26,7 +26,19 @@ const resolveActorKey = (value) => {
   return key;
 };
 
-const userToken = (req) => req.user?.apifyToken || process.env.APIFY_TOKEN || "";
+const userToken = (req) => req.user?.apifyToken || "";
+
+const requireUserToken = (req, res) => {
+  const token = userToken(req);
+  if (!token) {
+    res.status(400).json({
+      success: false,
+      message: "Apify API token not set. Add it in Settings to start scraping.",
+    });
+    return null;
+  }
+  return token;
+};
 
 export const getActors = async (_req, res) => {
   res.status(200).json({ success: true, data: listActors() });
@@ -55,9 +67,12 @@ export const getScraperStatus = async (req, res) => {
     runBudgetSecs,
   });
 
+  const apifyToken = requireUserToken(req, res);
+  if (!apifyToken) return;
+
   try {
     const { runId, datasetId, status } = await apifyService.startAsyncRun({
-      apifyToken: userToken(req),
+      apifyToken,
       actorKey,
       query,
       location,
@@ -224,8 +239,11 @@ export const pauseRun = async (req, res) => {
       });
     }
 
+    const apifyToken = requireUserToken(req, res);
+    if (!apifyToken) return;
+
     await apifyService.abortRun({
-      apifyToken: userToken(req),
+      apifyToken,
       runId: run.apifyRunId,
     });
 
@@ -276,8 +294,11 @@ export const rerunRun = async (req, res) => {
     const limit = Number(parentRun.limit) || 20;
     const runBudgetSecs = clampRunBudget(parentRun.runBudgetSecs);
 
+    const apifyToken = requireUserToken(req, res);
+    if (!apifyToken) return;
+
     const { runId, datasetId, status } = await apifyService.startAsyncRun({
-      apifyToken: userToken(req),
+      apifyToken,
       actorKey,
       query,
       location,
@@ -334,9 +355,10 @@ export const completeRun = async (req, res) => {
     }
 
     if (run.apifyRunId && ["pending", "running"].includes(run.status)) {
-      await apifyService
-        .abortRun({ apifyToken: userToken(req), runId: run.apifyRunId })
-        .catch(() => {});
+      const token = userToken(req);
+      if (token) {
+        await apifyService.abortRun({ apifyToken: token, runId: run.apifyRunId }).catch(() => {});
+      }
     }
 
     await run.updateOne({
@@ -370,9 +392,10 @@ export const deleteRun = async (req, res) => {
     }
 
     if (run.apifyRunId && ["pending", "running"].includes(run.status)) {
-      await apifyService
-        .abortRun({ apifyToken: userToken(req), runId: run.apifyRunId })
-        .catch(() => {});
+      const token = userToken(req);
+      if (token) {
+        await apifyService.abortRun({ apifyToken: token, runId: run.apifyRunId }).catch(() => {});
+      }
     }
 
     await Job.deleteMany({ userId: req.user._id, scrapeRunId: run._id });

@@ -14,12 +14,20 @@ import {
   CheckCheck,
   Trash2,
   Loader2,
+  KeyRound,
+  ArrowRight,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import EmptyState from "@/components/ui/EmptyState";
+import ApifyOnboardingModal from "@/components/ApifyOnboardingModal";
 import Pagination from "@/components/ui/Pagination";
-import { getDashboardStats, getScrapingActivity, getApifyLimits } from "@/api/analyticsApi";
+import {
+  getDashboardStats,
+  getScrapingActivity,
+  getApifyLimits,
+} from "@/api/analyticsApi";
 import {
   startScrapeRun,
   syncPendingRuns,
@@ -33,6 +41,7 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [scrapingActivity, setScrapingActivity] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,12 +50,13 @@ export default function Dashboard() {
   const [query, setQuery] = useState("software engineer");
   const [location, setLocation] = useState("remote");
   const [limit, setLimit] = useState("20");
-  const [runBudgetSecs, setRunBudgetSecs] = useState("60");
+  const [runBudgetSecs, setRunBudgetSecs] = useState("30");
   const [apifyCredits, setApifyCredits] = useState(null);
   const [loadingCredits, setLoadingCredits] = useState(true);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState(null);
   const [scrapeError, setScrapeError] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
 
   // --- Timer ---
   // cronTimerActive: true when we have an active Apify run to poll
@@ -98,7 +108,9 @@ export default function Dashboard() {
           getActors(),
         ]);
         setStats(statsRes);
-        setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
+        setScrapingActivity(
+          (activityRes || []).filter((a) => a.status !== "completed"),
+        );
         setActors(actorsRes || []);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -129,7 +141,9 @@ export default function Dashboard() {
         await syncPendingRuns();
 
         const activityRes = await getScrapingActivity();
-        setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
+        setScrapingActivity(
+          (activityRes || []).filter((a) => a.status !== "completed"),
+        );
 
         const currentId = selectedActivityIdRef.current;
         if (currentId) {
@@ -143,7 +157,7 @@ export default function Dashboard() {
           // Stop the timer once the run is in a terminal state
           if (["completed", "failed", "paused"].includes(runResults.status)) {
             cronTimerActiveRef.current = false; // stop interval ticks immediately
-            setCronTimerActive(false);           // trigger effect cleanup
+            setCronTimerActive(false); // trigger effect cleanup
           }
         }
       } catch (err) {
@@ -230,7 +244,9 @@ export default function Dashboard() {
       // exists at this point (created before the Apify call on the server).
       try {
         const activityRes = await getScrapingActivity();
-        setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
+        setScrapingActivity(
+          (activityRes || []).filter((a) => a.status !== "completed"),
+        );
       } catch (err) {
         console.error("Failed to refresh scraping activity:", err);
       }
@@ -247,7 +263,9 @@ export default function Dashboard() {
     try {
       await pauseScrapeRun(activityId);
       const activityRes = await getScrapingActivity();
-      setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
+      setScrapingActivity(
+        (activityRes || []).filter((a) => a.status !== "completed"),
+      );
       setCronTimerActive(false);
 
       if (selectedActivityId === activityId) {
@@ -282,7 +300,9 @@ export default function Dashboard() {
         getScrapingActivity(),
         getScrapeRunResults(newId, { page: 1, limit: selectedResultsLimit }),
       ]);
-      setScrapingActivity((activityRes || []).filter((a) => a.status !== "completed"));
+      setScrapingActivity(
+        (activityRes || []).filter((a) => a.status !== "completed"),
+      );
       setSelectedResults(runResults.results || []);
       setSelectedResultsMeta(runResults);
     } catch (err) {
@@ -355,6 +375,25 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {!user?.hasApifyToken && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-5 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <div className="flex items-center gap-3">
+            <KeyRound className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              You haven't added your Apify API key yet — it's required to search
+              for jobs.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/app/settings")}
+            className="cursor-pointer flex shrink-0 items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+          >
+            Add API key
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -385,9 +424,11 @@ export default function Dashboard() {
           <StatCard
             title="Apify Credits"
             value={
-              loadingCredits
-                ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                : (apifyCredits ?? 0).toLocaleString()
+              loadingCredits ? (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              ) : (
+                (apifyCredits ?? 0).toLocaleString()
+              )
             }
             icon={Zap}
             subtitle="Remaining"
@@ -443,9 +484,8 @@ export default function Dashboard() {
               onChange={(e) => setRunBudgetSecs(e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
+              <option value="30">Run budget: 30s</option>
               <option value="60">Run budget: 60s</option>
-              <option value="120">Run budget: 120s</option>
-              <option value="180">Run budget: 180s</option>
             </select>
           </div>
           <button
@@ -456,8 +496,22 @@ export default function Dashboard() {
             {isScraping ? "Scraping..." : "Start Scraping"}
           </button>
           {scrapeError ? (
-            <p className="text-sm text-red-600">{scrapeError}</p>
+            <div>
+              <p className="text-sm text-red-600">{scrapeError}</p>
+              {scrapeError.toLowerCase().includes("token not set") && (
+                <button
+                  onClick={() => setGuideOpen(true)}
+                  className="mt-1 text-xs text-sidebar-active underline cursor-pointer"
+                >
+                  Here's how to get your Apify API key
+                </button>
+              )}
+            </div>
           ) : null}
+          <ApifyOnboardingModal
+            open={guideOpen}
+            onClose={() => setGuideOpen(false)}
+          />
           {isScraping ? (
             <p className="text-sm text-muted-foreground">
               Waiting for Apify to accept the request...
@@ -520,9 +574,7 @@ export default function Dashboard() {
                     {/* Chevron */}
                     <ChevronRight
                       className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                        isSelected
-                          ? "rotate-90"
-                          : "group-hover:translate-x-0.5"
+                        isSelected ? "rotate-90" : "group-hover:translate-x-0.5"
                       }`}
                     />
 

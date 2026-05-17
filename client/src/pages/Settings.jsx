@@ -150,7 +150,7 @@ export default function Settings() {
             </label>
             <button
               onClick={() => setGuideOpen(true)}
-              className="text-xs text-sidebar-active hover:underline"
+              className="cursor-pointer text-xs text-sidebar-active hover:underline"
             >
               How to get your API token
             </button>

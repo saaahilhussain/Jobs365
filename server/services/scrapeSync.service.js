@@ -6,11 +6,11 @@ import { apifyService } from "./apify.service.js";
 const userTokenCache = new Map(); // userId → token (cleared at sync end)
 
 const resolveUserToken = async (userId) => {
-  if (!userId) return process.env.APIFY_TOKEN || "";
+  if (!userId) return "";
   const cached = userTokenCache.get(String(userId));
   if (cached !== undefined) return cached;
   const user = await User.findById(userId).lean();
-  const token = user?.apifyToken || process.env.APIFY_TOKEN || "";
+  const token = user?.apifyToken || "";
   userTokenCache.set(String(userId), token);
   return token;
 };
@@ -173,6 +173,10 @@ export const scrapeSyncService = {
         }
 
         const apifyToken = await resolveUserToken(run.userId);
+        if (!apifyToken) {
+          console.warn(`Run ${run._id}: skipping sync, user has no Apify token`);
+          continue;
+        }
         const result = await syncRun(run, apifyToken);
         if (result.budgetStopped) continue;
 
