@@ -4,11 +4,9 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
-import session from "express-session";
-import RedisStore from "connect-redis";
 import passport from "passport";
 import { connectDB } from "./config/db.js";
-import { connectRedis, getRedisClient } from "./config/redis.js";
+import { connectRedis } from "./config/redis.js";
 import { configurePassport } from "./config/passport.js";
 import { registerScrapeJobsCron } from "./cron/scrapeJobs.cron.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -25,6 +23,10 @@ import {
 
 const app = express();
 
+// Trust the first hop (Nginx reverse proxy) so req.ip, req.secure, and
+// X-Forwarded-Proto are correct behind the load balancer / proxy.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(
   cors({
@@ -33,35 +35,20 @@ app.use(
   }),
 );
 app.use(express.json());
-app.use(cookieParser());
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 const startServer = async () => {
   await connectDB();
   await connectRedis();
 
-  const sessionSecret = process.env.SESSION_SECRET;
-  if (!sessionSecret) throw new Error("Missing required environment variable: SESSION_SECRET");
+  const cookieSecret = process.env.COOKIE_SECRET;
+  if (!cookieSecret)
+    throw new Error("Missing required environment variable: COOKIE_SECRET");
 
-  app.use(
-    session({
-      store: new RedisStore({ client: getRedisClient() }),
-      secret: sessionSecret,
-      resave: false,
-      saveUninitialized: false,
-      name: "jobs365_sid",
-      cookie: {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      },
-    }),
-  );
+  app.use(cookieParser(cookieSecret));
 
   configurePassport();
   app.use(passport.initialize());
-  app.use(passport.session());
 
   app.get("/health", (req, res) => {
     res.status(200).json({ status: "ok" });

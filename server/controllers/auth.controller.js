@@ -3,12 +3,17 @@ import crypto from "crypto";
 import { User } from "../models/user.model.js";
 import { PendingRegistration } from "../models/pendingRegistration.model.js";
 import { sendOtpEmail } from "../services/email.service.js";
+import {
+  COOKIE_NAME,
+  cookieOptions,
+  createSession,
+  destroySession,
+} from "../utils/session.js";
 
 const clientUrl = () => process.env.CLIENT_URL || "http://localhost:5173";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
-const SESSION_COOKIE = "jobs365_sid";
 
 const generateOtp = () => {
   // 6-digit zero-padded, uniform via rejection sampling
@@ -25,10 +30,17 @@ const normalizeEmail = (email) =>
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-export const oauthCallback = (req, res) => {
-  if (!req.user) {
+const issueSession = async (res, user) => {
+  await createSession(user._id);
+  res.cookie(COOKIE_NAME, user._id.toString(), cookieOptions());
+};
+
+export const oauthCallback = async (req, res) => {
+  const user = req.user;
+  if (!user) {
     return res.redirect(`${clientUrl()}/signin?error=oauth_failed`);
   }
+  await issueSession(res, user);
   res.redirect(`${clientUrl()}/app`);
 };
 
@@ -48,15 +60,11 @@ export const getMe = async (req, res) => {
   });
 };
 
-export const logout = (req, res, next) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    req.session.destroy((destroyErr) => {
-      if (destroyErr) return next(destroyErr);
-      res.clearCookie(SESSION_COOKIE);
-      res.status(200).json({ success: true, data: { loggedOut: true } });
-    });
-  });
+export const logout = async (req, res) => {
+  const userId = req.signedCookies?.[COOKIE_NAME];
+  if (userId) await destroySession(userId);
+  res.clearCookie(COOKIE_NAME, cookieOptions());
+  res.status(200).json({ success: true, data: { loggedOut: true } });
 };
 
 export const registerStart = async (req, res) => {
@@ -92,7 +100,7 @@ export const registerStart = async (req, res) => {
   await PendingRegistration.findOneAndUpdate(
     { email },
     { email, name, passwordHash, otpHash, expiresAt, attempts: 0 },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
   await sendOtpEmail({ to: email, code, name });
@@ -103,7 +111,7 @@ export const registerStart = async (req, res) => {
   });
 };
 
-export const registerVerify = async (req, res, next) => {
+export const registerVerify = async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const code = (req.body?.code || "").trim();
 
@@ -156,17 +164,15 @@ export const registerVerify = async (req, res, next) => {
         emailVerified: true,
       },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
   await PendingRegistration.deleteOne({ _id: pending._id });
 
-  req.logIn(user, (loginErr) => {
-    if (loginErr) return next(loginErr);
-    res.status(200).json({
-      success: true,
-      data: { id: user._id, email: user.email, name: user.name },
-    });
+  await issueSession(res, user);
+  res.status(200).json({
+    success: true,
+    data: { id: user._id, email: user.email, name: user.name },
   });
 };
 
@@ -199,7 +205,7 @@ export const registerResend = async (req, res) => {
   });
 };
 
-export const login = async (req, res, next) => {
+export const login = async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password || "";
 
@@ -224,11 +230,9 @@ export const login = async (req, res, next) => {
       .json({ success: false, message: "Invalid email or password." });
   }
 
-  req.logIn(user, (err) => {
-    if (err) return next(err);
-    res.status(200).json({
-      success: true,
-      data: { id: user._id, email: user.email, name: user.name },
-    });
+  await issueSession(res, user);
+  res.status(200).json({
+    success: true,
+    data: { id: user._id, email: user.email, name: user.name },
   });
 };

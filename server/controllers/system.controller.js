@@ -47,7 +47,7 @@ export const updateSettings = async (req, res) => {
   }
 
   const user = await User.findByIdAndUpdate(req.user._id, update, {
-    new: true,
+    returnDocument: "after",
   });
 
   res.status(200).json({

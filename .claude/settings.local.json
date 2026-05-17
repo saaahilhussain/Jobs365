@@ -15,7 +15,8 @@
       "Bash(curl -s -o /dev/null -w \"wellfound.com/role/software-engineer: %{http_code}\\\\n\" \"https://wellfound.com/role/software-engineer\")",
       "Bash(curl -s -o /dev/null -w \"wellfound.com/jobs: %{http_code}\\\\n\" \"https://wellfound.com/jobs\")",
       "Bash(curl -s \"https://api.apify.com/v2/acts/crawlerbros~glassdoor-jobs-scraper\")",
-      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const d=JSON.parse\\(s\\).data; console.log\\('defaultRunOptions:', JSON.stringify\\(d.defaultRunOptions,null,2\\)\\); console.log\\('inputSchema:', JSON.stringify\\(d.inputSchema,null,2\\).slice\\(0,1500\\)\\)}\\)\")"
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const d=JSON.parse\\(s\\).data; console.log\\('defaultRunOptions:', JSON.stringify\\(d.defaultRunOptions,null,2\\)\\); console.log\\('inputSchema:', JSON.stringify\\(d.inputSchema,null,2\\).slice\\(0,1500\\)\\)}\\)\")",
+      "Bash(Test-Path *)"
     ]
   }
 }
