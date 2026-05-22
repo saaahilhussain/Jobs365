@@ -56,10 +56,7 @@ const insertJobsAndCount = async (jobs, run) => {
     const insertedCount = err?.result?.nInserted ?? err?.insertedCount ?? 0;
 
     if (otherErrors.length > 0) {
-      console.warn(
-        `Run ${run._id}: insertMany had ${otherErrors.length} non-duplicate errors`,
-        otherErrors[0]?.errmsg || otherErrors[0]?.err?.errmsg || otherErrors[0],
-      );
+      // non-duplicate write errors — insertedCount still reflects partial success
     }
     return { insertedCount, duplicateCount };
   }
@@ -89,12 +86,6 @@ const syncRun = async (run, apifyToken) => {
 
   const { insertedCount, duplicateCount } = await insertJobsAndCount(jobs, run);
 
-  if (jobs.length > 0) {
-    console.log(
-      `Run ${run.apifyRunId}: fetched=${jobs.length} inserted=${insertedCount} duplicates=${duplicateCount}`,
-    );
-  }
-
   // Advance the offset by what Apify returned (including duplicates) so we
   // don't refetch the same items on the next tick. Real DB inserts are
   // reflected in jobsFetched.
@@ -109,11 +100,8 @@ const syncRun = async (run, apifyToken) => {
     // Abort on Apify side, then mark completed with budget reason.
     try {
       await apifyService.abortRun({ apifyToken, runId: run.apifyRunId });
-    } catch (err) {
-      console.warn(
-        `Run ${run.apifyRunId}: abortRun on budget exceeded failed:`,
-        err.message,
-      );
+    } catch {
+      // abort failure is non-fatal; run will be marked completed regardless
     }
     await run.updateOne({
       ...baseUpdate,
@@ -174,23 +162,13 @@ export const scrapeSyncService = {
         }
 
         const apifyToken = await resolveUserToken(run.userId);
-        if (!apifyToken) {
-          console.warn(`Run ${run._id}: skipping sync, user has no Apify token`);
-          continue;
-        }
+        if (!apifyToken) continue;
         const result = await syncRun(run, apifyToken);
         if (result.budgetStopped) continue;
 
         syncedCount++;
         jobsImported += result.jobsImported;
-        console.log(
-          `Synced run ${run.apifyRunId}: ${result.jobsImported} jobs`,
-        );
       } catch (error) {
-        console.error(
-          `Failed to sync run ${run.apifyRunId}:`,
-          error.message,
-        );
         if (error.response?.status === 404) {
           await ScrapeRun.deleteOne({ _id: run._id });
           continue;

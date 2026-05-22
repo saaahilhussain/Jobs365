@@ -55,7 +55,6 @@ export const apifyService = {
     const url = `${APIFY_BASE_URL}/acts/${actor.id.replace("/", "~")}/run-sync-get-dataset-items`;
 
     try {
-      console.log(`Calling Apify [${actor.key}]`);
       const response = await axios.post(url, input, {
         params: { token, timeout },
         headers: { "Content-Type": "application/json" },
@@ -63,12 +62,6 @@ export const apifyService = {
       const items = Array.isArray(response.data) ? response.data : [];
       return items.slice(0, normalizedLimit).map(actor.mapItem);
     } catch (error) {
-      console.error("Apify run-sync error:", {
-        actor: actor.key,
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-      });
       throw error;
     }
   },
@@ -91,7 +84,6 @@ export const apifyService = {
     const url = `${APIFY_BASE_URL}/acts/${actor.id.replace("/", "~")}/runs`;
 
     try {
-      console.log(`Starting async Apify run [${actor.key}]`);
       const response = await axios.post(url, input, {
         params: { token },
         headers: { "Content-Type": "application/json" },
@@ -106,12 +98,6 @@ export const apifyService = {
       }
       return { runId, datasetId, status: run.status };
     } catch (error) {
-      console.error("Failed to start async Apify run:", {
-        actor: actor.key,
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-      });
       throw error;
     }
   },
@@ -133,7 +119,6 @@ export const apifyService = {
         finishedAt: run.finishedAt,
       };
     } catch (error) {
-      console.error("Failed to check run status:", error.message);
       throw error;
     }
   },
@@ -151,11 +136,6 @@ export const apifyService = {
       );
       return { success: true };
     } catch (error) {
-      console.error("Failed to abort run:", {
-        runId,
-        status: error.response?.status,
-        message: error.message,
-      });
       throw error;
     }
   },
@@ -201,7 +181,6 @@ export const apifyService = {
       }
       return mapped;
     } catch (error) {
-      console.error("Failed to fetch dataset items:", error.message);
       throw error;
     }
   },
@@ -230,8 +209,7 @@ export const apifyService = {
       };
       limitsCache.set(token, { value, expiresAt: Date.now() + LIMITS_TTL_MS });
       return value;
-    } catch (error) {
-      console.error("Failed to fetch Apify account limits:", error.message);
+    } catch {
       return null;
     }
   },

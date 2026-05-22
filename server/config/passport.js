@@ -71,8 +71,6 @@ export const configurePassport = () => {
         },
       ),
     );
-  } else {
-    console.warn("Google OAuth not configured (missing env vars)");
   }
 
   if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
@@ -104,7 +102,5 @@ export const configurePassport = () => {
         },
       ),
     );
-  } else {
-    console.warn("GitHub OAuth not configured (missing env vars)");
   }
 };

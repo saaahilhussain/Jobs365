@@ -77,7 +77,6 @@ export const getScraperStatus = async (req, res) => {
       limit,
     });
   } catch (error) {
-    console.error("Failed to start async run:", error.message);
     const apifyErr = error.response?.data?.error;
     const friendly =
       apifyErr?.type === "actor-is-not-rented"
@@ -102,8 +101,6 @@ export const getScraperStatus = async (req, res) => {
     datasetId,
     startedAt: new Date(),
   });
-
-  console.log(`Apify run started [${actorKey}] for ${req.user.email}: ${runId}`);
 
   return res.status(200).json({
     success: true,

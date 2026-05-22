@@ -43,7 +43,6 @@ const otpEmailHtml = (code, name) => `<!doctype html>
 
 export const sendOtpEmail = async ({ to, code, name }) => {
   if (process.env.NODE_ENV !== "production" && !process.env.RESEND_API_KEY) {
-    console.log(`[email.service] (dev fallback) OTP for ${to}: ${code}`);
     return { id: "dev-fallback" };
   }
   const resend = getResend();

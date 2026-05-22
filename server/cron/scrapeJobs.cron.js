@@ -3,14 +3,9 @@ import { scrapeSyncService } from "../services/scrapeSync.service.js";
 
 const tick = async () => {
   try {
-    const result = await scrapeSyncService.syncAllPending();
-    if (result.runsChecked > 0) {
-      console.log(
-        `Cron: checked ${result.runsChecked} runs, imported ${result.jobsImported} jobs`,
-      );
-    }
-  } catch (error) {
-    console.error("Cron sync error:", error.message);
+    await scrapeSyncService.syncAllPending();
+  } catch {
+    // swallow — cron errors are non-fatal
   }
 };
 
