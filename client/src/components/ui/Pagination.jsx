@@ -30,7 +30,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input text-sm disabled:opacity-40 hover:bg-accent"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input text-sm disabled:opacity-40 hover:bg-accent"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -38,7 +38,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
         page === "..." ? (
           <span
             key={`ellipsis-${idx}`}
-            className="inline-flex h-8 w-8 items-center justify-center text-xs text-muted-foreground"
+            className="inline-flex h-9 w-9 items-center justify-center text-xs text-muted-foreground"
           >
             …
           </span>
@@ -46,7 +46,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
           <button
             key={page}
             onClick={() => onPageChange(page)}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-sm font-medium ${
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium ${
               page === currentPage
                 ? "bg-primary text-primary-foreground"
                 : "border border-input hover:bg-accent"
@@ -59,7 +59,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input text-sm disabled:opacity-40 hover:bg-accent"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input text-sm disabled:opacity-40 hover:bg-accent"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

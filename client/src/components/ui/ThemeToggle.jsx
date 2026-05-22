@@ -11,7 +11,7 @@ export default function ThemeToggle({ className = "" }) {
       onClick={toggle}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className={`press relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground ${className}`}
+      className={`press relative inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground ${className}`}
     >
       <Sun
         className="absolute h-4 w-4 transition-all duration-200"
