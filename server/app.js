@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import passport from "passport";
 import { connectDB } from "./config/db.js";
@@ -35,7 +34,6 @@ app.use(
   }),
 );
 app.use(express.json());
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 const startServer = async () => {
   await connectDB();
